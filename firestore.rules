@@ -12,21 +12,24 @@ service cloud.firestore {
 
     // Profils utilisateurs (roles)
     match /users/{uid} {
+      // chaque user peut lire/écrire SON profil (création)
       allow read: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid;
-      allow update, delete: if isAdmin(); // seul admin peut changer roles
+
+      // seul admin peut modifier/supprimer (ex: changer role)
+      allow update, delete: if isAdmin();
     }
 
     // Stock
     match /items/{code} {
       allow read: if signedIn();
-      allow write: if isAdmin(); // seul admin peut modifier le stock
+      allow write: if isAdmin(); // seul admin modifie le stock
     }
 
     // Journal mouvements
     match /moves/{id} {
       allow read: if signedIn();
-      allow write: if signedIn(); // tout utilisateur connecté peut écrire un mouvement
+      allow write: if signedIn();
     }
   }
 }
