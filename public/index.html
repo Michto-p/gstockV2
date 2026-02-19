@@ -27,13 +27,20 @@
         </div>
         <div>
           <label>Mot de passe</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <div class="pwRow">
+            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+            <button id="btnTogglePw" type="button" class="ghost pwBtn">Afficher</button>
+          </div>
         </div>
       </div>
 
       <div class="row">
-        <button id="btnLogin">Se connecter</button>
-        <button id="btnSignup" class="ghost">Créer un compte</button>
+        <button id="btnLogin" type="button">Se connecter</button>
+        <button id="btnSignup" type="button" class="ghost">Créer un compte</button>
+      </div>
+
+      <div class="row">
+        <button id="btnForgotPw" class="ghost" type="button">Mot de passe oublié</button>
       </div>
 
       <p class="hint">Après inscription, un administrateur doit valider ton compte.</p>
@@ -48,7 +55,7 @@
       <h2>Compte en attente</h2>
       <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
       <div class="row">
-        <button id="btnLogout2" class="ghost">Déconnexion</button>
+        <button id="btnLogout2" class="ghost" type="button">Déconnexion</button>
         <span id="pendingInfo" class="status"></span>
       </div>
     </section>
@@ -56,10 +63,11 @@
     <!-- VIEW: APP -->
     <section id="viewApp" class="card" hidden>
       <div class="tabs">
-        <button id="tabBtnDash" class="tab active">Dashboard</button>
-        <button id="tabBtnScan" class="tab">Scan</button>
-        <button id="tabBtnStock" class="tab">Stock</button>
-        <button id="tabBtnSettings" class="tab">Paramètres</button>
+        <button id="tabBtnDash" class="tab active" type="button">Dashboard</button>
+        <button id="tabBtnScan" class="tab" type="button">Scan</button>
+        <button id="tabBtnStock" class="tab" type="button">Stock</button>
+        <button id="tabBtnLabels" class="tab" type="button">Étiquettes</button>
+        <button id="tabBtnSettings" class="tab" type="button">Paramètres</button>
       </div>
 
       <!-- TAB: DASHBOARD -->
@@ -83,7 +91,7 @@
 
         <div class="row">
           <input id="dashSearch" placeholder="Rechercher un article…" />
-          <button id="btnDashGoStock" class="ghost">Ouvrir Stock</button>
+          <button id="btnDashGoStock" class="ghost" type="button">Ouvrir Stock</button>
         </div>
 
         <div class="card innerCard">
@@ -103,8 +111,8 @@
         <h2>Scan / Mouvement</h2>
 
         <div class="row">
-          <button id="btnScan">Scanner un code-barres</button>
-          <button id="btnStopScan" class="ghost" hidden>Arrêter</button>
+          <button id="btnScan" type="button">Scanner un code-barres</button>
+          <button id="btnStopScan" type="button" class="ghost" hidden>Arrêter</button>
         </div>
 
         <div id="scannerWrap" class="scanner" hidden>
@@ -116,11 +124,11 @@
         <div class="grid2">
           <div>
             <label>Code-barres</label>
-            <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..." />
+            <input id="barcode" placeholder="Ex: DISJLGDX16 (ou EAN13)" />
           </div>
           <div>
             <label>Désignation (optionnel)</label>
-            <input id="name" placeholder="Ex: Gaine ICTA 20" />
+            <input id="name" placeholder="Ex: Disjoncteur Legrand DX 16A" />
           </div>
         </div>
 
@@ -136,9 +144,9 @@
         </div>
 
         <div class="row">
-          <button id="btnAdd">+ Ajouter</button>
-          <button id="btnRemove" class="danger">- Retirer</button>
-          <button id="btnLoad" class="ghost">Recharger l’article</button>
+          <button id="btnAdd" type="button">+ Ajouter</button>
+          <button id="btnRemove" type="button" class="danger">- Retirer</button>
+          <button id="btnLoad" type="button" class="ghost">Recharger l’article</button>
         </div>
 
         <div class="row">
@@ -160,8 +168,8 @@
             <option value="low">Bas</option>
             <option value="ok">OK</option>
           </select>
-          <button id="btnNewItem" class="ghost">+ Nouveau (admin)</button>
-          <button id="btnPrintSelected" class="ghost">Imprimer étiquettes (sélection)</button>
+          <button id="btnNewItem" type="button" class="ghost">+ Nouveau (admin)</button>
+          <button id="btnPrintSelected" type="button" class="ghost">Imprimer étiquettes (sélection)</button>
         </div>
 
         <div class="stockLayout">
@@ -184,7 +192,6 @@
             </div>
 
             <div id="stockCards" class="stockCards"></div>
-
             <p class="hint" id="stockHint"></p>
           </div>
 
@@ -194,7 +201,7 @@
             <div class="grid2">
               <div>
                 <label>Code-barres (ID)</label>
-                <input id="edBarcode" placeholder="3560..." />
+                <input id="edBarcode" placeholder="Laisse vide pour auto-code (admin)" />
               </div>
               <div>
                 <label>Nom</label>
@@ -216,11 +223,11 @@
             <div class="grid2">
               <div>
                 <label>Seuil bas</label>
-                <input id="edLow" type="number" min="0" step="1" />
+                <input id="edLow" type="number" min="0" step="1" value="5" />
               </div>
               <div>
                 <label>Seuil critique</label>
-                <input id="edCritical" type="number" min="0" step="1" />
+                <input id="edCritical" type="number" min="0" step="1" value="2" />
               </div>
             </div>
 
@@ -230,15 +237,58 @@
             </div>
 
             <div class="row">
-              <button id="btnSaveItem">Enregistrer (admin)</button>
-              <button id="btnDeleteItem" class="danger">Supprimer (admin)</button>
-              <button id="btnPrintOne" class="ghost">Imprimer étiquette (1)</button>
+              <button id="btnSaveItem" type="button">Enregistrer (admin)</button>
+              <button id="btnDeleteItem" type="button" class="danger">Supprimer (admin)</button>
+              <button id="btnPrintOne" type="button" class="ghost">Imprimer étiquette (1)</button>
               <span id="stockStatus" class="status"></span>
             </div>
 
             <p class="hint">
               Droits : <b>stock</b> = entrées/sorties (Scan) • <b>visu</b> = lecture seule.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: LABELS -->
+      <section id="tabLabels" class="tabPanel" hidden>
+        <h2>Étiquettes</h2>
+
+        <div class="labelsLayout">
+          <!-- LEFT -->
+          <div class="card innerCard">
+            <div class="row">
+              <input id="labelsSearch" placeholder="Rechercher (nom / code)..." />
+            </div>
+
+            <div class="row">
+              <button id="btnLabelsSelectAll" class="ghost" type="button">Tout cocher</button>
+              <button id="btnLabelsClear" class="ghost" type="button">Tout décocher</button>
+              <button id="btnLabelsPrint" class="ghost" type="button">Générer / Imprimer</button>
+            </div>
+
+            <p class="hint" id="labelsHint"></p>
+            <div id="labelsList" class="labelsList"></div>
+          </div>
+
+          <!-- RIGHT -->
+          <div class="card innerCard">
+            <h3>Planche à imprimer</h3>
+            <p class="hint">
+              La planche utilise les réglages dans “Paramètres → Étiquettes”.
+            </p>
+
+            <div class="row">
+              <label class="checkRow" style="margin:0">
+                <input type="checkbox" id="labelsPreviewBorder" />
+                Contours (test)
+              </label>
+            </div>
+
+            <div class="itemBox">
+              <div><b>Articles sélectionnés :</b> <span id="labelsSelCount">0</span></div>
+              <div><b>Total étiquettes :</b> <span id="labelsTotalCount">0</span></div>
+            </div>
           </div>
         </div>
       </section>
@@ -254,6 +304,28 @@
           </div>
         </div>
 
+        <!-- PASSWORD PANEL -->
+        <section id="pwPanel" class="card innerCard">
+          <h3>Mot de passe</h3>
+          <p class="hint">Changer ton mot de passe (si tu es connecté).</p>
+
+          <div class="grid2">
+            <div>
+              <label>Nouveau mot de passe</label>
+              <input id="newPassword" type="password" placeholder="6 caractères minimum" />
+            </div>
+            <div>
+              <label>Confirmer</label>
+              <input id="newPassword2" type="password" placeholder="Répéter" />
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="btnChangePw" class="ghost" type="button">Changer le mot de passe</button>
+            <span id="pwStatus" class="status"></span>
+          </div>
+        </section>
+
         <!-- IMPORT (ADMIN) -->
         <section id="importPanel" class="card innerCard" hidden>
           <h3>Import CSV (admin)</h3>
@@ -264,7 +336,7 @@
           </p>
 
           <div class="row">
-            <button id="btnDownloadCsvTemplate" class="ghost">Télécharger modèle CSV</button>
+            <button id="btnDownloadCsvTemplate" class="ghost" type="button">Télécharger modèle CSV</button>
             <input id="csvFile" type="file" accept=".csv,text/csv" />
           </div>
 
@@ -276,14 +348,14 @@
           </div>
 
           <div class="row">
-            <button id="btnImportCsv">Importer</button>
+            <button id="btnImportCsv" type="button">Importer</button>
             <span id="importStatus" class="status"></span>
           </div>
         </section>
 
-        <!-- LABELS SETTINGS -->
+        <!-- LABEL SETTINGS -->
         <section id="labelsPanel" class="card innerCard">
-          <h3>Étiquettes (A4 prédécoupées)</h3>
+          <h3>Réglages étiquettes (A4 prédécoupées)</h3>
 
           <div class="row">
             <select id="labelPreset">
@@ -293,8 +365,8 @@
               <option value="averyL7651">Avery L7651 (63.5 x 33.9 mm, 3x8)</option>
               <option value="generic3x8">Générique 3x8 (70 x 35 mm)</option>
             </select>
-            <button id="btnSaveLabelSettings" class="ghost">Enregistrer réglages</button>
-            <button id="btnResetLabelSettings" class="ghost">Réinitialiser</button>
+            <button id="btnSaveLabelSettings" type="button" class="ghost">Enregistrer</button>
+            <button id="btnResetLabelSettings" type="button" class="ghost">Réinitialiser</button>
             <span id="labelStatus" class="status"></span>
           </div>
 
@@ -364,13 +436,9 @@
             </label>
             <label class="checkRow" style="margin:0">
               <input type="checkbox" id="lblShowBorder" />
-              Afficher contour (pour tests)
+              Afficher contour (tests)
             </label>
           </div>
-
-          <p class="hint">
-            Astuce : imprime avec “contour” une page test, puis ajuste marges/gaps.
-          </p>
         </section>
 
         <!-- ADMIN PANEL -->
@@ -378,7 +446,7 @@
           <h3>Admin</h3>
 
           <div class="row">
-            <button id="btnRefreshPending" class="ghost">Recharger les comptes en attente</button>
+            <button id="btnRefreshPending" type="button" class="ghost">Recharger les comptes en attente</button>
             <span id="adminStatus" class="status"></span>
           </div>
 
@@ -401,7 +469,7 @@
             </div>
             <div>
               <label>&nbsp;</label>
-              <button id="btnClearStock" class="danger">Vider le stock (qty=0)</button>
+              <button id="btnClearStock" type="button" class="danger">Vider le stock (qty=0)</button>
             </div>
           </div>
         </section>
@@ -410,7 +478,7 @@
   </main>
 
   <footer>
-    <small>Gstock V2 — Import + Étiquettes réglables</small>
+    <small>Gstock V2 — Étiquettes + Import + Auth</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
