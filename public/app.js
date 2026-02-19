@@ -218,6 +218,7 @@ btnSignup.addEventListener("click", async () => {
   try {
     setStatus("");
     await createUserWithEmailAndPassword(auth, safeTrim(email.value), safeTrim(password.value));
+    await createMyPendingProfile();
   } catch (e) {
     setStatus(e.message, true);
   }
@@ -304,37 +305,81 @@ barcode.addEventListener("change", async () => {
 });
 
 // Auth state listener  ✅ IMPORTANT: async ici (sinon "Unexpected reserved word" avec await)
+function show(view) {
+  // cache/affiche les 2 vues
+  viewLogin.hidden = (view !== "login");
+  viewPending.hidden = (view !== "pending");
+}
+
 onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    // crée users/{uid} si absent
-    await ensureMyUserDoc();
-
-    // récupère rôle
-    const role = await getMyRole();
-
-    authState.textContent = `Connecté : ${user.isAnonymous ? "anonyme" : user.email} (${user.uid.slice(0,6)}…) — rôle: ${role}`;
-    btnLogout.hidden = false;
-    setStatus("Connecté.");
-
-    const canEditStock = (role === "admin");
-    btnAdd.disabled = !canEditStock;
-    btnRemove.disabled = !canEditStock;
-
-    if (unsubscribeMoves) unsubscribeMoves();
-    unsubscribeMoves = startMovesListener();
-  } else {
+  if (!user) {
     authState.textContent = "Non connecté";
     btnLogout.hidden = true;
-    setStatus("Déconnecté.");
 
+    // cache l'app (si tu veux, sinon laisse)
+    show("login");
+
+    // sécurité UI
     btnAdd.disabled = true;
     btnRemove.disabled = true;
-
-    if (unsubscribeMoves) unsubscribeMoves();
-    unsubscribeMoves = null;
-    moves.innerHTML = "";
+    return;
   }
+
+  // connecté
+  btnLogout.hidden = false;
+
+  // s'assurer qu'il y a un profil (pending par défaut)
+  await createMyPendingProfile();
+
+  const profile = await getMyProfile();
+  const approved = !!profile?.approved;
+  const role = profile?.role || "pending";
+
+  authState.textContent = `Connecté : ${user.email} — rôle: ${role}${approved ? "" : " (non validé)"}`;
+
+  if (!approved || role === "pending") {
+    // pas validé => pas accès app
+    show("pending");
+    btnAdd.disabled = true;
+    btnRemove.disabled = true;
+    return;
+  }
+
+  // validé => accès app
+  show("none"); // cache les vues login/pending
+  viewLogin.hidden = true;
+  viewPending.hidden = true;
+
+  // droits UI
+  const canMoveStock = (role === "admin" || role === "stock");
+  btnAdd.disabled = !canMoveStock;
+  btnRemove.disabled = !canMoveStock;
+
+  // listener moves
+  if (unsubscribeMoves) unsubscribeMoves();
+  unsubscribeMoves = startMovesListener();
 });
+
+async function createMyPendingProfile() {
+  if (!auth.currentUser) return;
+  const ref = doc(db, "users", auth.currentUser.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      email: auth.currentUser.email || "",
+      role: "pending",
+      approved: false,
+      createdAt: serverTimestamp()
+    }, { merge: true });
+  }
+}
+
+async function getMyProfile() {
+  if (!auth.currentUser) return null;
+  const ref = doc(db, "users", auth.currentUser.uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? snap.data() : null;
+}
 
 // Par défaut, tant qu'on n'a pas le rôle, on désactive
 btnAdd.disabled = true;
