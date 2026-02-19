@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Gstock</title>
   <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="/favicon.png">
 </head>
 <body>
   <header>
@@ -16,7 +17,6 @@
   </header>
 
   <main>
-    <!-- VIEW: LOGIN -->
     <section id="viewLogin" class="card">
       <h2>Connexion</h2>
 
@@ -25,6 +25,7 @@
           <label>Email</label>
           <input id="email" type="email" placeholder="email@exemple.fr" autocomplete="username" />
         </div>
+
         <div>
           <label>Mot de passe</label>
           <div class="pwRow">
@@ -36,7 +37,7 @@
 
       <div class="row">
         <button id="btnLogin" type="button">Se connecter</button>
-        <button id="btnSignup" type="button" class="ghost">Créer un compte</button>
+        <button id="btnSignup" class="ghost" type="button">Créer un compte</button>
       </div>
 
       <div class="row">
@@ -50,7 +51,6 @@
       </div>
     </section>
 
-    <!-- VIEW: PENDING -->
     <section id="viewPending" class="card" hidden>
       <h2>Compte en attente</h2>
       <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
@@ -60,7 +60,6 @@
       </div>
     </section>
 
-    <!-- VIEW: APP -->
     <section id="viewApp" class="card" hidden>
       <div class="tabs">
         <button id="tabBtnDash" class="tab active" type="button">Dashboard</button>
@@ -70,10 +69,8 @@
         <button id="tabBtnSettings" class="tab" type="button">Paramètres</button>
       </div>
 
-      <!-- TAB: DASHBOARD -->
       <section id="tabDash" class="tabPanel">
         <h2>Dashboard</h2>
-
         <div class="kpis">
           <div class="kpi crit">
             <div class="kpiLabel">Critique</div>
@@ -91,7 +88,6 @@
 
         <div class="row">
           <input id="dashSearch" placeholder="Rechercher un article…" />
-          <button id="btnDashGoStock" class="ghost" type="button">Ouvrir Stock</button>
         </div>
 
         <div class="card innerCard">
@@ -106,13 +102,12 @@
         </div>
       </section>
 
-      <!-- TAB: SCAN -->
       <section id="tabScan" class="tabPanel" hidden>
         <h2>Scan / Mouvement</h2>
 
         <div class="row">
           <button id="btnScan" type="button">Scanner un code-barres</button>
-          <button id="btnStopScan" type="button" class="ghost" hidden>Arrêter</button>
+          <button id="btnStopScan" class="ghost" type="button" hidden>Arrêter</button>
         </div>
 
         <div id="scannerWrap" class="scanner" hidden>
@@ -145,8 +140,8 @@
 
         <div class="row">
           <button id="btnAdd" type="button">+ Ajouter</button>
-          <button id="btnRemove" type="button" class="danger">- Retirer</button>
-          <button id="btnLoad" type="button" class="ghost">Recharger l’article</button>
+          <button id="btnRemove" class="danger" type="button">- Retirer</button>
+          <button id="btnLoad" class="ghost" type="button">Recharger l’article</button>
         </div>
 
         <div class="row">
@@ -156,7 +151,6 @@
         <div id="itemBox" class="itemBox" hidden></div>
       </section>
 
-      <!-- TAB: STOCK -->
       <section id="tabStock" class="tabPanel" hidden>
         <h2>Stock</h2>
 
@@ -168,94 +162,35 @@
             <option value="low">Bas</option>
             <option value="ok">OK</option>
           </select>
-          <button id="btnNewItem" type="button" class="ghost">+ Nouveau (admin)</button>
-          <button id="btnPrintSelected" type="button" class="ghost">Imprimer étiquettes (sélection)</button>
+          <button id="btnNewItem" class="ghost" type="button">+ Nouveau (admin)</button>
+          <button id="btnPrintSelected" class="ghost" type="button">Imprimer étiquettes (sélection)</button>
         </div>
 
-        <div class="stockLayout">
-          <div class="stockList">
-            <div class="stockTableWrap">
-              <table class="stockTable">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>État</th>
-                    <th>Nom</th>
-                    <th>Code</th>
-                    <th class="num">Qté</th>
-                    <th class="num">Bas</th>
-                    <th class="num">Crit</th>
-                  </tr>
-                </thead>
-                <tbody id="stockTableBody"></tbody>
-              </table>
-            </div>
-
-            <div id="stockCards" class="stockCards"></div>
-            <p class="hint" id="stockHint"></p>
-          </div>
-
-          <div class="stockEditor card innerCard" id="stockEditor">
-            <h3>Fiche article</h3>
-
-            <div class="grid2">
-              <div>
-                <label>Code-barres (ID)</label>
-                <input id="edBarcode" placeholder="Laisse vide pour auto-code (admin)" />
-              </div>
-              <div>
-                <label>Nom</label>
-                <input id="edName" placeholder="Désignation..." />
-              </div>
-            </div>
-
-            <div class="grid2">
-              <div>
-                <label>Unité</label>
-                <input id="edUnit" placeholder="pcs / m / boite..." />
-              </div>
-              <div>
-                <label>Emplacement</label>
-                <input id="edLocation" placeholder="Armoire / atelier..." />
-              </div>
-            </div>
-
-            <div class="grid2">
-              <div>
-                <label>Seuil bas</label>
-                <input id="edLow" type="number" min="0" step="1" value="5" />
-              </div>
-              <div>
-                <label>Seuil critique</label>
-                <input id="edCritical" type="number" min="0" step="1" value="2" />
-              </div>
-            </div>
-
-            <div>
-              <label>Tags (virgules ou |)</label>
-              <input id="edTags" placeholder="IRVE, consommable | atelier..." />
-            </div>
-
-            <div class="row">
-              <button id="btnSaveItem" type="button">Enregistrer (admin)</button>
-              <button id="btnDeleteItem" type="button" class="danger">Supprimer (admin)</button>
-              <button id="btnPrintOne" type="button" class="ghost">Imprimer étiquette (1)</button>
-              <span id="stockStatus" class="status"></span>
-            </div>
-
-            <p class="hint">
-              Droits : <b>stock</b> = entrées/sorties (Scan) • <b>visu</b> = lecture seule.
-            </p>
-          </div>
+        <p class="hint" id="stockHint"></p>
+        <div class="stockTableWrap">
+          <table class="stockTable">
+            <thead>
+              <tr>
+                <th></th>
+                <th>État</th>
+                <th>Nom</th>
+                <th>Code</th>
+                <th class="num">Qté</th>
+                <th class="num">Bas</th>
+                <th class="num">Crit</th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody"></tbody>
+          </table>
         </div>
+
+        <div class="stockCards" id="stockCards"></div>
       </section>
 
-      <!-- TAB: LABELS -->
       <section id="tabLabels" class="tabPanel" hidden>
         <h2>Étiquettes</h2>
 
         <div class="labelsLayout">
-          <!-- LEFT -->
           <div class="card innerCard">
             <div class="row">
               <input id="labelsSearch" placeholder="Rechercher (nom / code)..." />
@@ -264,47 +199,43 @@
             <div class="row">
               <button id="btnLabelsSelectAll" class="ghost" type="button">Tout cocher</button>
               <button id="btnLabelsClear" class="ghost" type="button">Tout décocher</button>
-              <button id="btnLabelsPrint" class="ghost" type="button">Générer / Imprimer</button>
+              <button id="btnLabelsPrint" class="ghost" type="button">Imprimer</button>
             </div>
 
             <p class="hint" id="labelsHint"></p>
             <div id="labelsList" class="labelsList"></div>
           </div>
 
-          <!-- RIGHT -->
           <div class="card innerCard">
-            <h3>Planche à imprimer</h3>
-            <p class="hint">
-              La planche utilise les réglages dans “Paramètres → Étiquettes”.
-            </p>
+            <h3>Aperçu planche</h3>
 
             <div class="row">
               <label class="checkRow" style="margin:0">
                 <input type="checkbox" id="labelsPreviewBorder" />
                 Contours (test)
               </label>
+              <button id="btnLabelsPreview" class="ghost" type="button">Rafraîchir aperçu</button>
             </div>
 
             <div class="itemBox">
               <div><b>Articles sélectionnés :</b> <span id="labelsSelCount">0</span></div>
               <div><b>Total étiquettes :</b> <span id="labelsTotalCount">0</span></div>
             </div>
+
+            <div class="previewWrap">
+              <iframe id="labelsPreviewFrame" title="Aperçu étiquettes"></iframe>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- TAB: SETTINGS -->
       <section id="tabSettings" class="tabPanel" hidden>
         <h2>Paramètres</h2>
 
         <div class="itemBox">
           <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
-          <div style="color:#666;font-size:12px;margin-top:6px">
-            Import CSV + réglages étiquettes + admin.
-          </div>
         </div>
 
-        <!-- PASSWORD PANEL -->
         <section id="pwPanel" class="card innerCard">
           <h3>Mot de passe</h3>
           <p class="hint">Changer ton mot de passe (si tu es connecté).</p>
@@ -326,36 +257,8 @@
           </div>
         </section>
 
-        <!-- IMPORT (ADMIN) -->
-        <section id="importPanel" class="card innerCard" hidden>
-          <h3>Import CSV (admin)</h3>
-
-          <p class="hint">
-            Colonnes : <b>barcode,name,qty,unit,location,low,critical,tags</b><br/>
-            Séparateur : <b>,</b> ou <b>;</b>. Tags séparés par <b>|</b> ou virgules.
-          </p>
-
-          <div class="row">
-            <button id="btnDownloadCsvTemplate" class="ghost" type="button">Télécharger modèle CSV</button>
-            <input id="csvFile" type="file" accept=".csv,text/csv" />
-          </div>
-
-          <div class="row">
-            <label class="checkRow">
-              <input type="checkbox" id="chkImportMerge" checked />
-              Fusionner (merge) : met à jour si existe, crée sinon
-            </label>
-          </div>
-
-          <div class="row">
-            <button id="btnImportCsv" type="button">Importer</button>
-            <span id="importStatus" class="status"></span>
-          </div>
-        </section>
-
-        <!-- LABEL SETTINGS -->
         <section id="labelsPanel" class="card innerCard">
-          <h3>Réglages étiquettes (A4 prédécoupées)</h3>
+          <h3>Étiquettes (A4 prédécoupées)</h3>
 
           <div class="row">
             <select id="labelPreset">
@@ -365,8 +268,8 @@
               <option value="averyL7651">Avery L7651 (63.5 x 33.9 mm, 3x8)</option>
               <option value="generic3x8">Générique 3x8 (70 x 35 mm)</option>
             </select>
-            <button id="btnSaveLabelSettings" type="button" class="ghost">Enregistrer</button>
-            <button id="btnResetLabelSettings" type="button" class="ghost">Réinitialiser</button>
+            <button id="btnSaveLabelSettings" class="ghost" type="button">Enregistrer réglages</button>
+            <button id="btnResetLabelSettings" class="ghost" type="button">Réinitialiser</button>
             <span id="labelStatus" class="status"></span>
           </div>
 
@@ -405,6 +308,17 @@
 
           <div class="grid2">
             <div>
+              <label>Padding interne (mm)</label>
+              <input id="lblPadMm" type="number" step="0.1" min="0" value="2.5" />
+            </div>
+            <div>
+              <label>Max lignes nom</label>
+              <input id="lblNameLines" type="number" step="1" min="1" value="2" />
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
               <label>Taille texte nom (pt)</label>
               <input id="lblNamePt" type="number" step="0.5" min="6" value="10.5" />
             </div>
@@ -431,54 +345,19 @@
               Afficher emplacement
             </label>
             <label class="checkRow" style="margin:0">
-              <input type="checkbox" id="lblShowQty" />
-              Afficher quantité
-            </label>
-            <label class="checkRow" style="margin:0">
               <input type="checkbox" id="lblShowBorder" />
-              Afficher contour (tests)
+              Afficher contour (test)
             </label>
           </div>
-        </section>
 
-        <!-- ADMIN PANEL -->
-        <section id="adminPanel" class="card innerCard" hidden>
-          <h3>Admin</h3>
-
-          <div class="row">
-            <button id="btnRefreshPending" type="button" class="ghost">Recharger les comptes en attente</button>
-            <span id="adminStatus" class="status"></span>
-          </div>
-
-          <div id="pendingList" class="list"></div>
-
-          <hr class="sep"/>
-
-          <h4>Zone dangereuse</h4>
-          <p class="hint">“Vider le stock” met <b>toutes les quantités (qty) à 0</b>.</p>
-
-          <label class="checkRow">
-            <input type="checkbox" id="chkConfirmClear" />
-            Je confirme vouloir vider le stock
-          </label>
-
-          <div class="grid2">
-            <div>
-              <label>Écris <b>VIDER</b> pour confirmer</label>
-              <input id="txtConfirmClear" placeholder="VIDER" />
-            </div>
-            <div>
-              <label>&nbsp;</label>
-              <button id="btnClearStock" type="button" class="danger">Vider le stock (qty=0)</button>
-            </div>
-          </div>
+          <p class="hint">L’aperçu se met à jour automatiquement quand tu modifies les réglages.</p>
         </section>
       </section>
     </section>
   </main>
 
   <footer>
-    <small>Gstock V2 — Étiquettes + Import + Auth</small>
+    <small>Gstock V2 — modular JS</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
