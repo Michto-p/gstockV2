@@ -91,6 +91,14 @@ function movesColRef() {
   return collection(db, "moves");
 }
 
+async function getMyRole() {
+  if (!auth.currentUser) return "guest";
+  const ref = doc(db, "users", auth.currentUser.uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? (snap.data().role || "user") : "user";
+}
+
+
 // Load item
 async function loadItem(code) {
   setStatus("");
@@ -287,11 +295,19 @@ barcode.addEventListener("change", async () => {
 });
 
 // Auth state listener
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, (user) => {
   if (user) {
     authState.textContent = `Connecté : ${user.isAnonymous ? "anonyme" : user.email} (${user.uid.slice(0,6)}…)`;
     btnLogout.hidden = false;
     setStatus("Connecté.");
+
+    const role = await getMyRole();
+      authState.textContent += ` — rôle: ${role}`;
+
+      const canEditStock = (role === "admin");
+      btnAdd.disabled = !canEditStock;
+      btnRemove.disabled = !canEditStock;
+
 
     if (unsubscribeMoves) unsubscribeMoves();
     unsubscribeMoves = startMovesListener();
@@ -300,6 +316,10 @@ onAuthStateChanged(auth, async (user) => {
     authState.textContent = "Non connecté";
     btnLogout.hidden = true;
     setStatus("Déconnecté.");
+
+    btnAdd.disabled = true;
+    btnRemove.disabled = true;
+
 
     if (unsubscribeMoves) unsubscribeMoves();
     unsubscribeMoves = null;
