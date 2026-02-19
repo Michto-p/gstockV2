@@ -1,9 +1,32 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    function signedIn() { return request.auth != null; }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Profils utilisateurs (roles)
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update, delete: if isAdmin(); // seul admin peut changer roles
+    }
+
+    // Stock
+    match /items/{code} {
+      allow read: if signedIn();
+      allow write: if isAdmin(); // seul admin peut modifier le stock
+    }
+
+    // Journal mouvements
+    match /moves/{id} {
+      allow read: if signedIn();
+      allow write: if signedIn(); // tout utilisateur connecté peut écrire un mouvement
     }
   }
 }
