@@ -22,35 +22,35 @@ service cloud.firestore {
     function isStock() { return role() == "stock"; }
     function isVisu()  { return role() == "visu"; }
 
-    // --- USERS ---
+    // USERS
     match /users/{uid} {
-      // chaque utilisateur peut lire son propre profil
-      allow read: if signedIn() && request.auth.uid == uid;
+      // admin peut lire/lister tout (validation)
+      allow get, list: if isAdmin();
 
-      // création du profil à l'inscription (auto: pending)
+      // chaque user peut lire son profil
+      allow get: if signedIn() && request.auth.uid == uid;
+
+      // création du profil à l'inscription: pending obligatoire
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.role == "pending"
         && request.resource.data.approved == false;
 
-      // seul admin peut modifier (validation + rôles)
+      // seul admin peut modifier (valider + changer role)
       allow update, delete: if isAdmin();
-
-      // admin peut lister / lire tout (utile pour valider)
-      allow list: if isAdmin();
     }
 
-    // --- ITEMS (stock) ---
+    // STOCK ITEMS
     match /items/{barcode} {
-      // lecture: visu/stock/admin (après validation)
+      // lecture: visu/stock/admin une fois validé
       allow get, list: if approved();
 
-      // création / suppression: admin uniquement
+      // création/suppression: admin seulement
       allow create, delete: if isAdmin();
 
       // update:
       // - admin: tout
-      // - stock: UNIQUEMENT qty + updatedAt + updatedBy (+ éventuellement lastMoveAt)
+      // - stock: uniquement qty + updatedAt + updatedBy + lastMoveAt
       allow update: if isAdmin() || (
         isStock()
         && request.resource.data.barcode == resource.data.barcode
@@ -61,7 +61,7 @@ service cloud.firestore {
       );
     }
 
-    // --- MOVES (journal) ---
+    // MOVES
     match /moves/{id} {
       allow get, list: if approved();
       allow create: if isAdmin() || isStock();
