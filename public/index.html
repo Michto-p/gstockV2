@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Test Scan Stock (Firebase)</title>
+  <title>Gstock — Scan</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <header>
-    <h1>Scan Stock — Test V2.2 </h1>
+    <h1>Gstock</h1>
     <div class="sub">
       <span id="authState">Non connecté</span>
       <button id="btnLogout" class="ghost" hidden>Déconnexion</button>
@@ -16,37 +16,8 @@
   </header>
 
   <main>
+    <!-- VIEW: LOGIN -->
     <section id="viewLogin" class="card">
-  <h2>Connexion</h2>
-
-  <div class="grid2">
-    <div>
-      <label>Email</label>
-      <input id="email" type="email" placeholder="email@exemple.fr" autocomplete="username" />
-    </div>
-    <div>
-      <label>Mot de passe</label>
-      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-    </div>
-  </div>
-
-  <div class="row">
-    <button id="btnLogin">Se connecter</button>
-    <button id="btnSignup" class="ghost">Créer un compte</button>
-  </div>
-
-  <p class="hint">Ton compte devra être validé par un admin avant accès.</p>
-</section>
-
-<section id="viewPending" class="card" hidden>
-  <h2>Compte en attente</h2>
-  <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
-  <div class="row">
-    <button id="btnLogout2" class="ghost">Déconnexion</button>
-  </div>
-</section>
-
-    <section class="card">
       <h2>Connexion</h2>
 
       <div class="grid2">
@@ -63,15 +34,31 @@
       <div class="row">
         <button id="btnLogin">Se connecter</button>
         <button id="btnSignup" class="ghost">Créer un compte</button>
-        <button id="btnAnon" class="ghost">Connexion anonyme</button>
       </div>
 
       <p class="hint">
-        Sur iPhone, le scan nécessite <b>HTTPS</b> → Firebase Hosting OK.
+        Après inscription, un administrateur doit valider ton compte.
       </p>
+
+      <div class="row">
+        <span id="status" class="status"></span>
+      </div>
     </section>
 
-    <section class="card">
+    <!-- VIEW: PENDING -->
+    <section id="viewPending" class="card" hidden>
+      <h2>Compte en attente</h2>
+      <p>
+        Ton compte est créé, mais il doit être validé par un administrateur.
+      </p>
+      <div class="row">
+        <button id="btnLogout2" class="ghost">Déconnexion</button>
+        <span id="pendingInfo" class="status"></span>
+      </div>
+    </section>
+
+    <!-- VIEW: APP -->
+    <section id="viewApp" class="card" hidden>
       <h2>Scan / Mouvement</h2>
 
       <div class="row">
@@ -88,7 +75,7 @@
       <div class="grid2">
         <div>
           <label>Code-barres</label>
-          <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..."/>
+          <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..." />
         </div>
         <div>
           <label>Désignation (optionnel)</label>
@@ -96,27 +83,39 @@
         </div>
       </div>
 
-      <div class="row">
-        <button id="btnAdd">+ Ajouter 1</button>
-        <button id="btnRemove" class="danger">- Retirer 1</button>
+      <div class="grid2">
+        <div>
+          <label>Quantité</label>
+          <input id="qtyDelta" type="number" min="1" step="1" value="1" />
+        </div>
+        <div>
+          <label>Motif (optionnel)</label>
+          <input id="reason" placeholder="TP / inventaire / commande..." />
+        </div>
       </div>
 
       <div class="row">
+        <button id="btnAdd">+ Ajouter</button>
+        <button id="btnRemove" class="danger">- Retirer</button>
         <button id="btnLoad" class="ghost">Recharger l’article</button>
-        <span id="status" class="status"></span>
+      </div>
+
+      <div class="row">
+        <span id="appStatus" class="status"></span>
       </div>
 
       <div id="itemBox" class="itemBox" hidden></div>
     </section>
 
-    <section class="card">
+    <section id="viewMoves" class="card" hidden>
       <h2>Derniers mouvements</h2>
       <div id="moves" class="moves"></div>
     </section>
+
   </main>
 
   <footer>
-    <small>Proto test — Firebase Auth + Firestore + Hosting</small>
+    <small>V2 — Auth + validation admin + rôles</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
