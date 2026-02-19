@@ -4,56 +4,48 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
 
-    function userDoc() {
+    function myUserDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function approved() {
+    function isApproved() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userDoc().data.approved == true;
+        && myUserDoc().data.approved == true;
     }
 
-    function role() {
-      return approved() ? (userDoc().data.role) : "pending";
+    function myRole() {
+      return isApproved() ? (myUserDoc().data.role) : "pending";
     }
 
-    function isAdmin() { return role() == "admin"; }
-    function isStock() { return role() == "stock"; }
-    function isVisu()  { return role() == "visu"; }
+    function isAdmin() { return myRole() == "admin"; }
+    function isStock() { return myRole() == "stock"; }
+    function isVisu()  { return myRole() == "visu"; }
 
     // USERS
     match /users/{uid} {
-      // admin peut lire/lister tout (validation)
-      allow get, list: if isAdmin();
+      // ✅ lecture:
+      // - admin peut lire/lister tous
+      // - un user peut lire son propre doc
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
 
-      // chaque user peut lire son profil
-      allow get: if signedIn() && request.auth.uid == uid;
-
-      // création du profil à l'inscription: pending obligatoire
+      // ✅ création: uniquement par l'utilisateur lui-même en "pending"
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.role == "pending"
         && request.resource.data.approved == false;
 
-      // seul admin peut modifier (valider + changer role)
+      // ✅ modification/suppression: admin uniquement
       allow update, delete: if isAdmin();
     }
 
-    // STOCK ITEMS
+    // ITEMS
     match /items/{barcode} {
-      // lecture: visu/stock/admin une fois validé
-      allow get, list: if approved();
-
-      // création/suppression: admin seulement
+      allow read: if isApproved();
       allow create, delete: if isAdmin();
 
-      // update:
-      // - admin: tout
-      // - stock: uniquement qty + updatedAt + updatedBy + lastMoveAt
       allow update: if isAdmin() || (
         isStock()
-        && request.resource.data.barcode == resource.data.barcode
         && request.resource.data.diff(resource.data).changedKeys()
           .hasOnly(["qty", "updatedAt", "updatedBy", "lastMoveAt"])
         && request.resource.data.qty is int
@@ -63,7 +55,7 @@ service cloud.firestore {
 
     // MOVES
     match /moves/{id} {
-      allow get, list: if approved();
+      allow read: if isApproved();
       allow create: if isAdmin() || isStock();
       allow update, delete: if isAdmin();
     }
