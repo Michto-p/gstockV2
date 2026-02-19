@@ -4,7 +4,9 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signOut,
+  sendPasswordResetEmail,
+  updatePassword
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore,
@@ -66,15 +68,20 @@ const password = $("password");
 const btnLogin = $("btnLogin");
 const btnSignup = $("btnSignup");
 const status = $("status");
+const btnTogglePw = $("btnTogglePw");
+const btnForgotPw = $("btnForgotPw");
 
 // tabs
 const tabBtnDash = $("tabBtnDash");
 const tabBtnScan = $("tabBtnScan");
 const tabBtnStock = $("tabBtnStock");
+const tabBtnLabels = $("tabBtnLabels");
 const tabBtnSettings = $("tabBtnSettings");
+
 const tabDash = $("tabDash");
 const tabScan = $("tabScan");
 const tabStock = $("tabStock");
+const tabLabels = $("tabLabels");
 const tabSettings = $("tabSettings");
 
 // dashboard
@@ -146,7 +153,13 @@ const chkConfirmClear = $("chkConfirmClear");
 const txtConfirmClear = $("txtConfirmClear");
 const btnClearStock = $("btnClearStock");
 
-// labels settings UI
+// password settings panel
+const newPassword = $("newPassword");
+const newPassword2 = $("newPassword2");
+const btnChangePw = $("btnChangePw");
+const pwStatus = $("pwStatus");
+
+// labels settings UI (print sheet settings)
 const labelPreset = $("labelPreset");
 const btnSaveLabelSettings = $("btnSaveLabelSettings");
 const btnResetLabelSettings = $("btnResetLabelSettings");
@@ -165,6 +178,17 @@ const lblBarWidthPx = $("lblBarWidthPx");
 const lblShowLocation = $("lblShowLocation");
 const lblShowQty = $("lblShowQty");
 const lblShowBorder = $("lblShowBorder");
+
+// labels tab UI (left list)
+const labelsSearch = $("labelsSearch");
+const btnLabelsSelectAll = $("btnLabelsSelectAll");
+const btnLabelsClear = $("btnLabelsClear");
+const btnLabelsPrint = $("btnLabelsPrint");
+const labelsHint = $("labelsHint");
+const labelsList = $("labelsList");
+const labelsSelCount = $("labelsSelCount");
+const labelsTotalCount = $("labelsTotalCount");
+const labelsPreviewBorder = $("labelsPreviewBorder");
 
 // helpers
 function setStatus(el, msg, isError = false) {
@@ -186,16 +210,19 @@ function showView(view) {
   viewApp.hidden = (view !== "app");
 }
 function setActiveTab(tab) {
-  const map = { dash: tabDash, scan: tabScan, stock: tabStock, settings: tabSettings };
+  const map = { dash: tabDash, scan: tabScan, stock: tabStock, labels: tabLabels, settings: tabSettings };
   Object.entries(map).forEach(([k, el]) => el.hidden = (k !== tab));
+
   tabBtnDash.classList.toggle("active", tab === "dash");
   tabBtnScan.classList.toggle("active", tab === "scan");
   tabBtnStock.classList.toggle("active", tab === "stock");
+  tabBtnLabels.classList.toggle("active", tab === "labels");
   tabBtnSettings.classList.toggle("active", tab === "settings");
 }
 tabBtnDash.addEventListener("click", () => setActiveTab("dash"));
 tabBtnScan.addEventListener("click", () => setActiveTab("scan"));
 tabBtnStock.addEventListener("click", () => setActiveTab("stock"));
+tabBtnLabels.addEventListener("click", () => setActiveTab("labels"));
 tabBtnSettings.addEventListener("click", () => setActiveTab("settings"));
 btnDashGoStock.addEventListener("click", () => setActiveTab("stock"));
 
@@ -257,9 +284,13 @@ function badgeHTML(st) {
 // --- Cache ---
 let itemsCache = [];               // {id, ...data}
 let selectedItemId = null;
-let selectedForLabels = new Set(); // ids
 
-// ------------------- LABEL SETTINGS -------------------
+// selection for labels (ids)
+let selectedForLabels = new Set();
+// qty of labels per item id
+const labelQtyById = new Map(); // id -> number
+
+// ------------------- LABEL SETTINGS (print sheet) -------------------
 const LABEL_SETTINGS_KEY = "gstock_label_settings_v1";
 
 const LABEL_PRESETS = {
@@ -385,6 +416,8 @@ function startItemsListener() {
       snap.forEach((d) => itemsCache.push({ id: d.id, ...d.data() }));
       renderDashboard();
       renderStockList();
+      renderLabelsTab();
+
       if (selectedItemId) {
         const it = itemsCache.find(x => x.id === selectedItemId);
         if (it) fillEditor(it);
@@ -441,7 +474,7 @@ function renderDashboard() {
           — Bas: ${low} — Crit: ${critical}
         </div>
         <div class="actions">
-          <button class="ghost">Ouvrir dans Stock</button>
+          <button class="ghost" type="button">Ouvrir dans Stock</button>
         </div>
       `;
       row.querySelector("button").addEventListener("click", () => {
@@ -498,6 +531,7 @@ function renderStockList() {
       ev.stopPropagation();
       if (ev.target.checked) selectedForLabels.add(it.id);
       else selectedForLabels.delete(it.id);
+      renderLabelsTab();
     });
 
     stockTableBody.appendChild(tr);
@@ -531,6 +565,7 @@ function renderStockList() {
     div.querySelector('input[type="checkbox"]').addEventListener("change", (ev) => {
       if (ev.target.checked) selectedForLabels.add(it.id);
       else selectedForLabels.delete(it.id);
+      renderLabelsTab();
     });
 
     stockCards.appendChild(div);
@@ -622,6 +657,10 @@ btnSaveItem.addEventListener("click", async () => {
     setStatus(stockStatus, isNew ? "Article créé." : "Article mis à jour.");
     selectedItemId = code;
     edBarcode.disabled = true;
+
+    // default label qty for new item
+    if (!labelQtyById.has(code)) labelQtyById.set(code, 1);
+    renderLabelsTab();
   } catch (e) {
     setStatus(stockStatus, e.message, true);
   }
@@ -636,7 +675,10 @@ btnDeleteItem.addEventListener("click", async () => {
   try {
     await deleteDoc(itemDocRef(code));
     setStatus(stockStatus, "Article supprimé.");
+    selectedForLabels.delete(code);
+    labelQtyById.delete(code);
     clearEditor();
+    renderLabelsTab();
   } catch (e) {
     setStatus(stockStatus, e.message, true);
   }
@@ -791,8 +833,24 @@ function stopScan() {
 btnScan.addEventListener("click", startScan);
 btnStopScan.addEventListener("click", stopScan);
 
-
 // --- Auth UI ---
+btnTogglePw.addEventListener("click", () => {
+  const isPw = password.type === "password";
+  password.type = isPw ? "text" : "password";
+  btnTogglePw.textContent = isPw ? "Masquer" : "Afficher";
+});
+
+btnForgotPw.addEventListener("click", async () => {
+  try {
+    const mail = safeTrim(email.value);
+    if (!mail) return setStatus(status, "Entre ton email puis clique 'Mot de passe oublié'.", true);
+    await sendPasswordResetEmail(auth, mail);
+    setStatus(status, "Email de réinitialisation envoyé ✅ (vérifie tes spams).");
+  } catch (e) {
+    setStatus(status, e.message, true);
+  }
+});
+
 btnLogin.addEventListener("click", async () => {
   try {
     setStatus(status, "");
@@ -815,6 +873,24 @@ btnSignup.addEventListener("click", async () => {
 });
 btnLogout.addEventListener("click", async () => { await signOut(auth); });
 btnLogout2.addEventListener("click", async () => { await signOut(auth); });
+
+btnChangePw.addEventListener("click", async () => {
+  try {
+    if (!auth.currentUser) return setStatus(pwStatus, "Connecte-toi d’abord.", true);
+
+    const p1 = safeTrim(newPassword.value);
+    const p2 = safeTrim(newPassword2.value);
+    if (p1.length < 6) return setStatus(pwStatus, "6 caractères minimum.", true);
+    if (p1 !== p2) return setStatus(pwStatus, "Les mots de passe ne correspondent pas.", true);
+
+    await updatePassword(auth.currentUser, p1);
+    newPassword.value = "";
+    newPassword2.value = "";
+    setStatus(pwStatus, "Mot de passe changé ✅");
+  } catch (e) {
+    setStatus(pwStatus, e.message, true);
+  }
+});
 
 // --- Admin: pending + clear stock ---
 async function refreshPendingUsers() {
@@ -848,8 +924,8 @@ async function refreshPendingUsers() {
         </div>
         <div class="meta">Rôle actuel: ${role} — approved: ${u.approved === true}</div>
         <div class="actions">
-          <button class="ghost" data-act="approve-stock">Valider STOCK</button>
-          <button class="ghost" data-act="approve-visu">Valider VISU</button>
+          <button class="ghost" type="button" data-act="approve-stock">Valider STOCK</button>
+          <button class="ghost" type="button" data-act="approve-visu">Valider VISU</button>
         </div>
       `;
 
@@ -950,8 +1026,8 @@ function downloadTextFile(filename, text) {
 btnDownloadCsvTemplate.addEventListener("click", () => {
   const sample =
 `barcode;name;qty;unit;location;low;critical;tags
-3560071234567;Gaine ICTA 20;12;boite;Armoire 1;5;2;consommable|atelier
-3700000000000;Disjoncteur 16A;6;pcs;Rayon DJ;3;1;protection|schneider
+DISJLGDX16;Disjoncteur Legrand DX 16A;12;pcs;Armoire 1;5;2;protection|legrand
+3560071234567;Gaine ICTA 20;6;boite;Armoire 2;5;2;consommable|atelier
 `;
   downloadTextFile("gstock_template.csv", sample);
 });
@@ -1007,6 +1083,8 @@ async function importRows(rows, merge = true) {
       if (merge) batch.set(ref, payload, { merge: true });
       else batch.set(ref, payload);
       total++;
+
+      if (!labelQtyById.has(r.barcode)) labelQtyById.set(r.barcode, 1);
     }
     await batch.commit();
   }
@@ -1033,7 +1111,7 @@ btnImportCsv.addEventListener("click", async () => {
   }
 });
 
-// --- ÉTIQUETTES / CODES BARRES ---
+// --- PRINT LABELS / BARCODE SVG ---
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -1106,7 +1184,7 @@ function buildLabelsHtml(items) {
       .barcode { display:flex; justify-content:center; align-items:center; }
       .code { font-size: ${s.codePt}pt; text-align:center; font-weight:700; letter-spacing: .4px; }
       .meta { font-size: ${Math.max(7, s.codePt - 1)}pt; color: #111; text-align:center; }
-      .noPrint { margin-bottom: 10px; }
+      .noPrint { margin: 10px; display:flex; gap: 10px; flex-wrap: wrap; }
       @media print { .noPrint { display:none; } }
     </style>
   `;
@@ -1140,6 +1218,7 @@ function buildLabelsHtml(items) {
   </body></html>`;
 }
 
+// Stock buttons print
 btnPrintOne.addEventListener("click", () => {
   const code = safeTrim(edBarcode.value);
   if (!code) return setStatus(stockStatus, "Sélectionne un article.", true);
@@ -1155,6 +1234,135 @@ btnPrintSelected.addEventListener("click", () => {
   const items = ids.map(id => itemsCache.find(x => x.id === id)).filter(Boolean);
   if (!items.length) return setStatus(stockStatus, "Sélection invalide.", true);
   openPrintWindow(buildLabelsHtml(items));
+});
+
+// --- LABELS TAB (left list, qty per item) ---
+function getLabelPlanItems() {
+  const ids = Array.from(selectedForLabels);
+  const out = [];
+  let total = 0;
+
+  for (const id of ids) {
+    const it = itemsCache.find(x => x.id === id);
+    if (!it) continue;
+
+    const n = Math.max(1, toInt(labelQtyById.get(id) ?? 1, 1));
+    for (let i = 0; i < n; i++) {
+      out.push(it);
+      total++;
+    }
+  }
+  return { items: out, total, selectedCount: ids.length };
+}
+
+function updateLabelCounters() {
+  const plan = getLabelPlanItems();
+  labelsSelCount.textContent = String(plan.selectedCount);
+  labelsTotalCount.textContent = String(plan.total);
+}
+
+function renderLabelsTab() {
+  const q = safeTrim(labelsSearch.value).toLowerCase();
+  const list = itemsCache.filter(it => {
+    const code = (it.barcode || it.id || "").toLowerCase();
+    const nm = (it.name || "").toLowerCase();
+    return !q || code.includes(q) || nm.includes(q);
+  });
+
+  labelsHint.textContent = `${list.length} article(s)`;
+  labelsList.innerHTML = "";
+
+  for (const it of list) {
+    const id = it.id;
+    const code = it.barcode || it.id;
+    const checked = selectedForLabels.has(id);
+    const qty = Math.max(1, toInt(labelQtyById.get(id) ?? 1, 1));
+
+    const row = document.createElement("div");
+    row.className = "lblRow";
+    row.innerHTML = `
+      <div class="lblRowTop">
+        <div class="lblRowName">${escapeHtml(it.name || "(sans nom)")}</div>
+        <label class="checkRow" style="margin:0">
+          <input type="checkbox" ${checked ? "checked" : ""}>
+          <span style="font-size:12px;color:#666;font-weight:800">Imprimer</span>
+        </label>
+      </div>
+      <div class="lblRowCode">${escapeHtml(code)}</div>
+      <div class="lblRowMeta">${escapeHtml(it.location || "")}</div>
+
+      <div class="lblRowControls">
+        <div style="min-width:220px;flex:1">
+          ${makeBarcodeSvg(code, { barWidthPx: 2, barPxHeight: 36 })}
+        </div>
+
+        <div class="lblQtyInput">
+          <label style="margin-top:0">Nb étiquettes</label>
+          <input type="number" min="1" step="1" value="${qty}">
+        </div>
+
+        <button class="ghost" type="button">Ouvrir</button>
+      </div>
+    `;
+
+    const cb = row.querySelector('input[type="checkbox"]');
+    cb.addEventListener("change", (ev) => {
+      if (ev.target.checked) {
+        selectedForLabels.add(id);
+        if (!labelQtyById.has(id)) labelQtyById.set(id, 1);
+      } else {
+        selectedForLabels.delete(id);
+      }
+      updateLabelCounters();
+    });
+
+    const qtyInput = row.querySelector('input[type="number"]');
+    qtyInput.addEventListener("change", (ev) => {
+      const v = Math.max(1, toInt(ev.target.value, 1));
+      ev.target.value = String(v);
+      labelQtyById.set(id, v);
+      updateLabelCounters();
+    });
+
+    row.querySelector("button").addEventListener("click", () => {
+      selectItem(id);
+      setActiveTab("stock");
+    });
+
+    labelsList.appendChild(row);
+  }
+
+  updateLabelCounters();
+}
+
+labelsSearch.addEventListener("input", renderLabelsTab);
+
+btnLabelsSelectAll.addEventListener("click", () => {
+  itemsCache.forEach(it => {
+    selectedForLabels.add(it.id);
+    if (!labelQtyById.has(it.id)) labelQtyById.set(it.id, 1);
+  });
+  renderLabelsTab();
+});
+
+btnLabelsClear.addEventListener("click", () => {
+  selectedForLabels.clear();
+  renderLabelsTab();
+});
+
+btnLabelsPrint.addEventListener("click", () => {
+  const plan = getLabelPlanItems();
+  if (!plan.items.length) return alert("Sélectionne au moins 1 article.");
+
+  // option contour uniquement pour cette impression
+  const s = readLabelSettings();
+  const patched = { ...s, showBorder: labelsPreviewBorder.checked ? true : s.showBorder };
+  writeLabelSettings(patched);
+
+  openPrintWindow(buildLabelsHtml(plan.items));
+
+  // restore
+  writeLabelSettings(s);
 });
 
 // --- Label settings init + actions ---
@@ -1197,6 +1405,7 @@ function stopAllListeners() {
   moves.innerHTML = "";
   itemsCache = [];
   selectedForLabels.clear();
+  labelQtyById.clear();
 }
 
 function applyRoleUI() {
@@ -1228,6 +1437,7 @@ onAuthStateChanged(auth, async (user) => {
   setStatus(adminStatus, "");
   setStatus(importStatus, "");
   setStatus(labelStatus, "");
+  setStatus(pwStatus, "");
 
   pendingList.innerHTML = "";
   dashCriticalList.innerHTML = "";
@@ -1235,6 +1445,10 @@ onAuthStateChanged(auth, async (user) => {
   stockTableBody.innerHTML = "";
   stockCards.innerHTML = "";
   stockHint.textContent = "";
+  labelsList.innerHTML = "";
+  labelsHint.textContent = "";
+  labelsSelCount.textContent = "0";
+  labelsTotalCount.textContent = "0";
   clearEditor();
 
   currentRole = "pending";
