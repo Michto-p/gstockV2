@@ -20,30 +20,33 @@ service cloud.firestore {
 
     function isAdmin() { return myRole() == "admin"; }
     function isStock() { return myRole() == "stock"; }
-    function isVisu()  { return myRole() == "visu"; }
 
     // USERS
     match /users/{uid} {
-      // ✅ lecture:
-      // - admin peut lire/lister tous
-      // - un user peut lire son propre doc
+      // admin peut lire/lister tous, utilisateur peut lire son doc
       allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
 
-      // ✅ création: uniquement par l'utilisateur lui-même en "pending"
+      // création uniquement par l’utilisateur lui-même en pending
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.role == "pending"
         && request.resource.data.approved == false;
 
-      // ✅ modification/suppression: admin uniquement
+      // modification/suppression: admin seulement
       allow update, delete: if isAdmin();
     }
 
     // ITEMS
     match /items/{barcode} {
+      // lecture: tous les users validés
       allow read: if isApproved();
+
+      // création/suppression: admin seulement
       allow create, delete: if isAdmin();
 
+      // update:
+      // - admin: tout
+      // - stock: uniquement qty + updatedAt + updatedBy + lastMoveAt
       allow update: if isAdmin() || (
         isStock()
         && request.resource.data.diff(resource.data).changedKeys()
