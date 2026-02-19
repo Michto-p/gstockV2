@@ -1055,7 +1055,7 @@ function normalizeRow(r) {
 
   if (!barcode) return null;
   return { barcode, name, qty, unit, location, low, critical, tags };
-};
+}
 
 async function importRows(rows, merge = true) {
   if (!isAdmin()) throw new Error("Admin uniquement.");
@@ -1079,7 +1079,7 @@ async function importRows(rows, merge = true) {
         thresholds: { low: r.low, critical: r.critical },
         updatedAt: serverTimestamp(),
         updatedBy: auth.currentUser?.uid || ""
-      };
+      }
 
       if (merge) batch.set(ref, payload, { merge: true });
       else batch.set(ref, payload);
