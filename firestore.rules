@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Items: lecture/écriture uniquement si connecté
+    match /items/{code} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Moves: lecture/écriture uniquement si connecté
+    match /moves/{id} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

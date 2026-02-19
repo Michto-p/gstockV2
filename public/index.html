@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Test Scan Stock (Firebase)</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <h1>Scan Stock — Test</h1>
+    <div class="sub">
+      <span id="authState">Non connecté</span>
+      <button id="btnLogout" class="ghost" hidden>Déconnexion</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Connexion</h2>
+
+      <div class="grid2">
+        <div>
+          <label>Email</label>
+          <input id="email" type="email" placeholder="email@exemple.fr" autocomplete="username" />
+        </div>
+        <div>
+          <label>Mot de passe</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnLogin">Se connecter</button>
+        <button id="btnSignup" class="ghost">Créer un compte</button>
+        <button id="btnAnon" class="ghost">Connexion anonyme</button>
+      </div>
+
+      <p class="hint">
+        Sur iPhone, le scan nécessite <b>HTTPS</b> → Firebase Hosting OK.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Scan / Mouvement</h2>
+
+      <div class="row">
+        <button id="btnScan">Scanner un code-barres</button>
+        <button id="btnStopScan" class="ghost" hidden>Arrêter</button>
+      </div>
+
+      <div id="scannerWrap" class="scanner" hidden>
+        <video id="video" playsinline></video>
+        <div class="scanFrame"></div>
+        <div class="scanHint">Place le code-barres dans le cadre</div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Code-barres</label>
+          <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..."/>
+        </div>
+        <div>
+          <label>Désignation (optionnel)</label>
+          <input id="name" placeholder="Ex: Gaine ICTA 20" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="btnAdd">+ Ajouter 1</button>
+        <button id="btnRemove" class="danger">- Retirer 1</button>
+      </div>
+
+      <div class="row">
+        <button id="btnLoad" class="ghost">Recharger l’article</button>
+        <span id="status" class="status"></span>
+      </div>
+
+      <div id="itemBox" class="itemBox" hidden></div>
+    </section>
+
+    <section class="card">
+      <h2>Derniers mouvements</h2>
+      <div id="moves" class="moves"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Proto test — Firebase Auth + Firestore + Hosting</small>
+  </footer>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
