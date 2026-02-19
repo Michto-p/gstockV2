@@ -202,3 +202,34 @@ footer { padding: 18px; text-align: center; color:#888; }
 .stockCard .top { display:flex; justify-content: space-between; gap: 10px; align-items:center; }
 .stockCard .name { font-weight: 900; }
 .stockCard .meta { color:#666; font-size: 12px; margin-top: 4px; }
+
+/* Password row */
+.pwRow{ display:flex; gap:8px; align-items:center; }
+.pwBtn{ white-space:nowrap; padding:10px 12px; }
+
+/* Labels tab layout */
+.labelsLayout{
+  display:grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 12px;
+  align-items:start;
+}
+@media (max-width: 900px){ .labelsLayout{ grid-template-columns: 1fr; } }
+
+.labelsList{
+  display:grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.lblRow{
+  border:1px solid #e7e8ef;
+  border-radius:12px;
+  padding:10px 12px;
+  background:#fff;
+}
+.lblRowTop{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
+.lblRowName{ font-weight:900; }
+.lblRowCode{ margin-top:6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight:800; }
+.lblRowMeta{ margin-top:4px; font-size:12px; color:#666; }
+.lblRowControls{ display:flex; gap:10px; align-items:center; margin-top: 10px; flex-wrap:wrap; }
+.lblQtyInput{ width: 140px; }
