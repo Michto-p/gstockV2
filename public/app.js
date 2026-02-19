@@ -5,7 +5,6 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInAnonymously,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
@@ -49,7 +48,6 @@ const email = $("email");
 const password = $("password");
 const btnLogin = $("btnLogin");
 const btnSignup = $("btnSignup");
-const btnAnon = $("btnAnon");
 
 const btnScan = $("btnScan");
 const btnStopScan = $("btnStopScan");
@@ -65,6 +63,10 @@ const btnLoad = $("btnLoad");
 const status = $("status");
 const itemBox = $("itemBox");
 const moves = $("moves");
+
+const viewLogin = $("viewLogin");
+const viewPending = $("viewPending");
+const btnLogout2 = $("btnLogout2");
 
 // Helpers
 function setStatus(msg, isError = false) {
@@ -220,15 +222,12 @@ btnSignup.addEventListener("click", async () => {
     setStatus(e.message, true);
   }
 });
-btnAnon.addEventListener("click", async () => {
-  try {
-    setStatus("");
-    await signInAnonymously(auth);
-  } catch (e) {
-    setStatus(e.message, true);
-  }
-});
+
 btnLogout.addEventListener("click", async () => {
+  await signOut(auth);
+});
+
+btnLogout2.addEventListener("click", async () => {
   await signOut(auth);
 });
 
