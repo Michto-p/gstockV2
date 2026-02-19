@@ -4,32 +4,68 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
 
-    function isAdmin() {
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function approved() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+        && userDoc().data.approved == true;
     }
 
-    // Profils utilisateurs (roles)
+    function role() {
+      return approved() ? (userDoc().data.role) : "pending";
+    }
+
+    function isAdmin() { return role() == "admin"; }
+    function isStock() { return role() == "stock"; }
+    function isVisu()  { return role() == "visu"; }
+
+    // --- USERS ---
     match /users/{uid} {
-      // chaque user peut lire/écrire SON profil (création)
+      // chaque utilisateur peut lire son propre profil
       allow read: if signedIn() && request.auth.uid == uid;
-      allow create: if signedIn() && request.auth.uid == uid;
 
-      // seul admin peut modifier/supprimer (ex: changer role)
+      // création du profil à l'inscription (auto: pending)
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == "pending"
+        && request.resource.data.approved == false;
+
+      // seul admin peut modifier (validation + rôles)
       allow update, delete: if isAdmin();
+
+      // admin peut lister / lire tout (utile pour valider)
+      allow list: if isAdmin();
     }
 
-    // Stock
-    match /items/{code} {
-      allow read: if signedIn();
-      allow write: if isAdmin(); // seul admin modifie le stock
+    // --- ITEMS (stock) ---
+    match /items/{barcode} {
+      // lecture: visu/stock/admin (après validation)
+      allow get, list: if approved();
+
+      // création / suppression: admin uniquement
+      allow create, delete: if isAdmin();
+
+      // update:
+      // - admin: tout
+      // - stock: UNIQUEMENT qty + updatedAt + updatedBy (+ éventuellement lastMoveAt)
+      allow update: if isAdmin() || (
+        isStock()
+        && request.resource.data.barcode == resource.data.barcode
+        && request.resource.data.diff(resource.data).changedKeys()
+          .hasOnly(["qty", "updatedAt", "updatedBy", "lastMoveAt"])
+        && request.resource.data.qty is int
+        && request.resource.data.qty >= 0
+      );
     }
 
-    // Journal mouvements
+    // --- MOVES (journal) ---
     match /moves/{id} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow get, list: if approved();
+      allow create: if isAdmin() || isStock();
+      allow update, delete: if isAdmin();
     }
   }
 }
