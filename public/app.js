@@ -129,7 +129,7 @@ const btnSaveItem = $("btnSaveItem");
 const btnDeleteItem = $("btnDeleteItem");
 const btnPrintOne = $("btnPrintOne");
 
-// settings/admin
+// settings/admin/import
 const roleLabel = $("roleLabel");
 const importPanel = $("importPanel");
 const btnDownloadCsvTemplate = $("btnDownloadCsvTemplate");
@@ -145,6 +145,26 @@ const pendingList = $("pendingList");
 const chkConfirmClear = $("chkConfirmClear");
 const txtConfirmClear = $("txtConfirmClear");
 const btnClearStock = $("btnClearStock");
+
+// labels settings UI
+const labelPreset = $("labelPreset");
+const btnSaveLabelSettings = $("btnSaveLabelSettings");
+const btnResetLabelSettings = $("btnResetLabelSettings");
+const labelStatus = $("labelStatus");
+
+const lblMarginMm = $("lblMarginMm");
+const lblCols = $("lblCols");
+const lblWmm = $("lblWmm");
+const lblHmm = $("lblHmm");
+const lblGapXmm = $("lblGapXmm");
+const lblGapYmm = $("lblGapYmm");
+const lblNamePt = $("lblNamePt");
+const lblCodePt = $("lblCodePt");
+const lblBarHmm = $("lblBarHmm");
+const lblBarWidthPx = $("lblBarWidthPx");
+const lblShowLocation = $("lblShowLocation");
+const lblShowQty = $("lblShowQty");
+const lblShowBorder = $("lblShowBorder");
 
 // helpers
 function setStatus(el, msg, isError = false) {
@@ -168,7 +188,6 @@ function showView(view) {
 function setActiveTab(tab) {
   const map = { dash: tabDash, scan: tabScan, stock: tabStock, settings: tabSettings };
   Object.entries(map).forEach(([k, el]) => el.hidden = (k !== tab));
-
   tabBtnDash.classList.toggle("active", tab === "dash");
   tabBtnScan.classList.toggle("active", tab === "scan");
   tabBtnStock.classList.toggle("active", tab === "stock");
@@ -236,9 +255,95 @@ function badgeHTML(st) {
 }
 
 // --- Cache ---
-let itemsCache = [];              // {id, ...data}
+let itemsCache = [];               // {id, ...data}
 let selectedItemId = null;
 let selectedForLabels = new Set(); // ids
+
+// ------------------- LABEL SETTINGS -------------------
+const LABEL_SETTINGS_KEY = "gstock_label_settings_v1";
+
+const LABEL_PRESETS = {
+  custom: null,
+  averyL7160: { marginMm: 10, cols: 3, wMm: 63.5, hMm: 38.1, gapXmm: 2.5, gapYmm: 0, namePt: 10.5, codePt: 9, barHmm: 16, barWidthPx: 2 },
+  averyL7163: { marginMm: 10, cols: 2, wMm: 99.1, hMm: 38.1, gapXmm: 2.5, gapYmm: 0, namePt: 11, codePt: 9.5, barHmm: 16, barWidthPx: 2 },
+  averyL7651: { marginMm: 8, cols: 3, wMm: 63.5, hMm: 33.9, gapXmm: 2.5, gapYmm: 0, namePt: 10, codePt: 9, barHmm: 14, barWidthPx: 2 },
+  generic3x8: { marginMm: 8, cols: 3, wMm: 70, hMm: 35, gapXmm: 2, gapYmm: 2, namePt: 10.5, codePt: 9, barHmm: 15, barWidthPx: 2 }
+};
+
+function defaultLabelSettings() {
+  return {
+    preset: "averyL7160",
+    marginMm: 10,
+    cols: 3,
+    wMm: 63.5,
+    hMm: 38.1,
+    gapXmm: 2.5,
+    gapYmm: 0,
+    namePt: 10.5,
+    codePt: 9,
+    barHmm: 16,
+    barWidthPx: 2,
+    showLocation: true,
+    showQty: false,
+    showBorder: false
+  };
+}
+function readLabelSettings() {
+  try {
+    const raw = localStorage.getItem(LABEL_SETTINGS_KEY);
+    if (!raw) return defaultLabelSettings();
+    const s = JSON.parse(raw);
+    return { ...defaultLabelSettings(), ...s };
+  } catch {
+    return defaultLabelSettings();
+  }
+}
+function writeLabelSettings(s) {
+  localStorage.setItem(LABEL_SETTINGS_KEY, JSON.stringify(s));
+}
+function uiToLabelSettings() {
+  return {
+    preset: labelPreset?.value || "custom",
+    marginMm: Number(lblMarginMm.value) || 0,
+    cols: Math.max(1, parseInt(lblCols.value || "3", 10)),
+    wMm: Number(lblWmm.value) || 63.5,
+    hMm: Number(lblHmm.value) || 38.1,
+    gapXmm: Number(lblGapXmm.value) || 0,
+    gapYmm: Number(lblGapYmm.value) || 0,
+    namePt: Number(lblNamePt.value) || 10,
+    codePt: Number(lblCodePt.value) || 9,
+    barHmm: Number(lblBarHmm.value) || 16,
+    barWidthPx: Math.max(1, parseInt(lblBarWidthPx.value || "2", 10)),
+    showLocation: !!lblShowLocation.checked,
+    showQty: !!lblShowQty.checked,
+    showBorder: !!lblShowBorder.checked
+  };
+}
+function applyLabelSettingsToUI(s) {
+  labelPreset.value = s.preset || "custom";
+  lblMarginMm.value = String(s.marginMm);
+  lblCols.value = String(s.cols);
+  lblWmm.value = String(s.wMm);
+  lblHmm.value = String(s.hMm);
+  lblGapXmm.value = String(s.gapXmm);
+  lblGapYmm.value = String(s.gapYmm);
+  lblNamePt.value = String(s.namePt);
+  lblCodePt.value = String(s.codePt);
+  lblBarHmm.value = String(s.barHmm);
+  lblBarWidthPx.value = String(s.barWidthPx);
+  lblShowLocation.checked = !!s.showLocation;
+  lblShowQty.checked = !!s.showQty;
+  lblShowBorder.checked = !!s.showBorder;
+}
+function applyPreset(presetKey) {
+  const base = readLabelSettings();
+  const p = LABEL_PRESETS[presetKey];
+  if (!p) return;
+  const next = { ...base, preset: presetKey, ...p };
+  applyLabelSettingsToUI(next);
+  writeLabelSettings(next);
+  setStatus(labelStatus, "Preset appliqué.");
+}
 
 // --- Moves listener ---
 let unsubscribeMoves = null;
@@ -272,7 +377,7 @@ function startMovesListener() {
 // --- Items listener ---
 let unsubscribeItems = null;
 function startItemsListener() {
-  const q = query(itemsColRef(), orderBy("name"), limit(1500));
+  const q = query(itemsColRef(), orderBy("name"), limit(2000));
   return onSnapshot(
     q,
     (snap) => {
@@ -280,8 +385,6 @@ function startItemsListener() {
       snap.forEach((d) => itemsCache.push({ id: d.id, ...d.data() }));
       renderDashboard();
       renderStockList();
-
-      // refresh editor
       if (selectedItemId) {
         const it = itemsCache.find(x => x.id === selectedItemId);
         if (it) fillEditor(it);
@@ -350,7 +453,7 @@ function renderDashboard() {
 }
 dashSearch.addEventListener("input", renderDashboard);
 
-// --- Stock list + selection ---
+// --- Stock list ---
 function matchesStockFilter(it) {
   const f = stockFilter.value;
   if (f === "all") return true;
@@ -362,22 +465,21 @@ function matchesStockSearch(it) {
   const hay = `${it.name || ""} ${it.barcode || it.id || ""} ${(it.tags || []).join(" ")}`.toLowerCase();
   return hay.includes(q);
 }
-
 function renderStockList() {
   const list = itemsCache.filter(it => matchesStockFilter(it) && matchesStockSearch(it));
   stockHint.textContent = `${list.length} article(s)`;
 
-  // Table
+  // Table (PC)
   stockTableBody.innerHTML = "";
   list.forEach((it) => {
     const st = itemStatus(it);
     const { low, critical } = normalizeThresholds(it);
-
     const checked = selectedForLabels.has(it.id) ? "checked" : "";
+
     const tr = document.createElement("tr");
     tr.className = "stockRow";
     tr.innerHTML = `
-      <td><input type="checkbox" data-sel="1" ${checked}></td>
+      <td><input type="checkbox" ${checked}></td>
       <td>${badgeHTML(st)}</td>
       <td>${it.name || "(sans nom)"}</td>
       <td>${it.barcode || it.id}</td>
@@ -385,12 +487,13 @@ function renderStockList() {
       <td class="num">${low}</td>
       <td class="num">${critical}</td>
     `;
+
     tr.addEventListener("click", (ev) => {
-      // évite sélection si click sur checkbox
       const cb = ev.target?.closest('input[type="checkbox"]');
       if (cb) return;
       selectItem(it.id);
     });
+
     tr.querySelector('input[type="checkbox"]').addEventListener("change", (ev) => {
       ev.stopPropagation();
       if (ev.target.checked) selectedForLabels.add(it.id);
@@ -405,6 +508,7 @@ function renderStockList() {
   list.forEach((it) => {
     const st = itemStatus(it);
     const { low, critical } = normalizeThresholds(it);
+
     const div = document.createElement("div");
     div.className = "stockCard";
     div.innerHTML = `
@@ -428,13 +532,14 @@ function renderStockList() {
       if (ev.target.checked) selectedForLabels.add(it.id);
       else selectedForLabels.delete(it.id);
     });
+
     stockCards.appendChild(div);
   });
 }
-
 stockSearch.addEventListener("input", renderStockList);
 stockFilter.addEventListener("change", renderStockList);
 
+// --- Editor ---
 function setEditorEnabled(enabled) {
   [edBarcode, edName, edUnit, edLocation, edLow, edCritical, edTags].forEach(el => el.disabled = !enabled);
   btnSaveItem.disabled = !enabled;
@@ -462,7 +567,6 @@ function fillEditor(it) {
   edCritical.value = String(critical);
   edTags.value = Array.isArray(it.tags) ? it.tags.join(", ") : "";
   setStatus(stockStatus, "");
-
   setEditorEnabled(isAdmin());
   edBarcode.disabled = true; // locked for existing
 }
@@ -636,7 +740,7 @@ barcode.addEventListener("change", async () => {
   if (code) await loadItem(code);
 });
 
-// --- Scan (camera) ---
+// --- Camera scan ---
 let codeReader = null;
 let scanning = false;
 
@@ -667,7 +771,6 @@ async function startScan() {
     stopScan();
   }
 }
-
 function stopScan() {
   scanning = false;
   btnScan.disabled = false;
@@ -683,7 +786,6 @@ function stopScan() {
     video.srcObject = null;
   } catch {}
 }
-
 btnScan.addEventListener("click", startScan);
 btnStopScan.addEventListener("click", stopScan);
 
@@ -711,7 +813,7 @@ btnSignup.addEventListener("click", async () => {
 btnLogout.addEventListener("click", async () => { await signOut(auth); });
 btnLogout2.addEventListener("click", async () => { await signOut(auth); });
 
-// --- Admin: pending validation + clear stock ---
+// --- Admin: pending + clear stock ---
 async function refreshPendingUsers() {
   if (!isAdmin()) return;
   setStatus(adminStatus, "Chargement...");
@@ -842,7 +944,6 @@ function downloadTextFile(filename, text) {
   a.remove();
   URL.revokeObjectURL(url);
 }
-
 btnDownloadCsvTemplate.addEventListener("click", () => {
   const sample =
 `barcode;name;qty;unit;location;low;critical;tags
@@ -851,27 +952,16 @@ btnDownloadCsvTemplate.addEventListener("click", () => {
 `;
   downloadTextFile("gstock_template.csv", sample);
 });
-
 function parseCsv(text) {
-  // auto delimiter guess
   const firstLine = (text.split(/\r?\n/).find(l => l.trim().length) || "");
   const semis = (firstLine.match(/;/g) || []).length;
   const commas = (firstLine.match(/,/g) || []).length;
   const delimiter = semis >= commas ? ";" : ",";
 
-  const res = Papa.parse(text, {
-    header: true,
-    skipEmptyLines: true,
-    delimiter
-  });
-
-  if (res.errors?.length) {
-    const msg = res.errors[0]?.message || "Erreur CSV";
-    throw new Error("CSV: " + msg);
-  }
+  const res = Papa.parse(text, { header: true, skipEmptyLines: true, delimiter });
+  if (res.errors?.length) throw new Error("CSV: " + (res.errors[0]?.message || "Erreur"));
   return res.data;
 }
-
 function normalizeRow(r) {
   const barcode = safeTrim(r.barcode || r.code || r.id);
   const name = safeTrim(r.name || r.nom);
@@ -882,18 +972,14 @@ function normalizeRow(r) {
   const critical = Math.max(0, toInt(r.critical ?? r.seuilcritique ?? 2, 2));
 
   const rawTags = safeTrim(r.tags || "");
-  const tags = rawTags
-    ? rawTags.split(/[|,]/g).map(s => s.trim()).filter(Boolean)
-    : [];
+  const tags = rawTags ? rawTags.split(/[|,]/g).map(s => s.trim()).filter(Boolean) : [];
 
   if (!barcode) return null;
   return { barcode, name, qty, unit, location, low, critical, tags };
 }
-
 async function importRows(rows, merge = true) {
   if (!isAdmin()) throw new Error("Admin uniquement.");
 
-  // Firestore batch: max 500 writes => on fait 450 safe
   const CHUNK = 450;
   let total = 0;
 
@@ -916,16 +1002,13 @@ async function importRows(rows, merge = true) {
       };
 
       if (merge) batch.set(ref, payload, { merge: true });
-      else batch.set(ref, payload); // overwrite
+      else batch.set(ref, payload);
       total++;
     }
-
     await batch.commit();
   }
-
   return total;
 }
-
 btnImportCsv.addEventListener("click", async () => {
   if (!isAdmin()) return setStatus(importStatus, "Admin uniquement.", true);
   if (!csvFile.files?.length) return setStatus(importStatus, "Choisis un fichier CSV.", true);
@@ -936,13 +1019,11 @@ btnImportCsv.addEventListener("click", async () => {
     const text = await file.text();
     const parsed = parseCsv(text);
     const rows = parsed.map(normalizeRow).filter(Boolean);
-
     if (!rows.length) return setStatus(importStatus, "Aucune ligne valide.", true);
 
     setStatus(importStatus, `Import en cours (${rows.length} lignes)...`);
     const total = await importRows(rows, chkImportMerge.checked);
     setStatus(importStatus, `Import terminé ✅ (${total} lignes écrites).`);
-
     csvFile.value = "";
   } catch (e) {
     setStatus(importStatus, e.message, true);
@@ -950,81 +1031,6 @@ btnImportCsv.addEventListener("click", async () => {
 });
 
 // --- ÉTIQUETTES / CODES BARRES ---
-function makeBarcodeSvg(value) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  // EAN13 si 13 chiffres, sinon CODE128
-  const isEan13 = /^\d{13}$/.test(value);
-  JsBarcode(svg, value, {
-    format: isEan13 ? "EAN13" : "CODE128",
-    displayValue: false,
-    margin: 0,
-    width: 2,
-    height: 48
-  });
-  return svg.outerHTML;
-}
-
-function buildLabelsHtml(items) {
-  const css = `
-    <style>
-      body { margin: 0; font-family: Arial, sans-serif; }
-      .page { padding: 10mm; }
-      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
-      .label {
-        border: 1px solid #000;
-        padding: 3mm;
-        height: 35mm;
-        overflow: hidden;
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        gap: 2mm;
-      }
-      .name { font-weight: 800; font-size: 11pt; line-height: 1.1; }
-      .meta { font-size: 9pt; color: #111; }
-      .barcode { display:flex; justify-content:center; }
-      .code { font-size: 9pt; text-align:center; font-weight:700; letter-spacing: .5px; }
-      @media print {
-        .noPrint { display:none; }
-      }
-    </style>
-  `;
-
-  const labels = items.map(it => {
-    const code = it.barcode || it.id;
-    const nm = it.name || "(sans nom)";
-    const loc = it.location ? `📍 ${it.location}` : "";
-    return `
-      <div class="label">
-        <div class="name">${escapeHtml(nm)}</div>
-        <div class="barcode">${makeBarcodeSvg(code)}</div>
-        <div>
-          <div class="code">${escapeHtml(code)}</div>
-          <div class="meta">${escapeHtml(loc)}</div>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  return `<!doctype html><html><head><meta charset="utf-8"/>${css}</head>
-  <body>
-    <div class="page">
-      <div class="noPrint" style="margin-bottom:10px">
-        <button onclick="window.print()">Imprimer</button>
-        <button onclick="window.close()">Fermer</button>
-      </div>
-      <div class="grid">${labels}</div>
-    </div>
-  </body></html>`;
-}
-
-function openPrintWindow(html) {
-  const w = window.open("", "_blank");
-  if (!w) return alert("Pop-up bloquée. Autorise les pop-ups pour imprimer.");
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-}
-
 function escapeHtml(s) {
   return String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -1033,10 +1039,108 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+function openPrintWindow(html) {
+  const w = window.open("", "_blank");
+  if (!w) return alert("Pop-up bloquée. Autorise les pop-ups pour imprimer.");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function makeBarcodeSvg(value, opt) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const isEan13 = /^\d{13}$/.test(value);
+  JsBarcode(svg, value, {
+    format: isEan13 ? "EAN13" : "CODE128",
+    displayValue: false,
+    margin: 0,
+    width: opt?.barWidthPx ?? 2,
+    height: opt?.barPxHeight ?? 48
+  });
+  return svg.outerHTML;
+}
+
+function buildLabelsHtml(items) {
+  const s = readLabelSettings();
+
+  const pageMargin = `${s.marginMm}mm`;
+  const colCount = s.cols;
+
+  // 96dpi ~ 3.78px/mm
+  const pxPerMm = 3.78;
+  const barPxHeight = Math.max(20, Math.round(s.barHmm * pxPerMm));
+
+  const borderCss = s.showBorder ? "1px solid #000" : "0";
+
+  const css = `
+    <style>
+      @page { size: A4; margin: ${pageMargin}; }
+      body { margin: 0; font-family: Arial, sans-serif; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(${colCount}, ${s.wMm}mm);
+        grid-auto-rows: ${s.hMm}mm;
+        column-gap: ${s.gapXmm}mm;
+        row-gap: ${s.gapYmm}mm;
+        align-content: start;
+      }
+      .label {
+        border: ${borderCss};
+        padding: 2.5mm;
+        box-sizing: border-box;
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 1.5mm;
+      }
+      .name {
+        font-weight: 800;
+        font-size: ${s.namePt}pt;
+        line-height: 1.05;
+        max-height: 2.4em;
+        overflow: hidden;
+      }
+      .barcode { display:flex; justify-content:center; align-items:center; }
+      .code { font-size: ${s.codePt}pt; text-align:center; font-weight:700; letter-spacing: .4px; }
+      .meta { font-size: ${Math.max(7, s.codePt - 1)}pt; color: #111; text-align:center; }
+      .noPrint { margin-bottom: 10px; }
+      @media print { .noPrint { display:none; } }
+    </style>
+  `;
+
+  const labels = items.map(it => {
+    const code = it.barcode || it.id;
+    const nm = it.name || "(sans nom)";
+    const loc = s.showLocation && it.location ? `📍 ${it.location}` : "";
+    const qty = s.showQty ? `Qté: ${toInt(it.qty, 0)}` : "";
+    const meta = [loc, qty].filter(Boolean).join(" • ");
+
+    return `
+      <div class="label">
+        <div class="name">${escapeHtml(nm)}</div>
+        <div class="barcode">${makeBarcodeSvg(code, { barWidthPx: s.barWidthPx, barPxHeight })}</div>
+        <div>
+          <div class="code">${escapeHtml(code)}</div>
+          <div class="meta">${escapeHtml(meta)}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8"/>${css}</head>
+  <body>
+    <div class="noPrint">
+      <button onclick="window.print()">Imprimer</button>
+      <button onclick="window.close()">Fermer</button>
+    </div>
+    <div class="grid">${labels}</div>
+  </body></html>`;
+}
 
 btnPrintOne.addEventListener("click", () => {
   const code = safeTrim(edBarcode.value);
   if (!code) return setStatus(stockStatus, "Sélectionne un article.", true);
+
   const it = itemsCache.find(x => (x.barcode || x.id) === code);
   const item = it || { id: code, barcode: code, name: safeTrim(edName.value), location: safeTrim(edLocation.value) };
   openPrintWindow(buildLabelsHtml([item]));
@@ -1049,6 +1153,36 @@ btnPrintSelected.addEventListener("click", () => {
   if (!items.length) return setStatus(stockStatus, "Sélection invalide.", true);
   openPrintWindow(buildLabelsHtml(items));
 });
+
+// --- Label settings init + actions ---
+(function initLabelSettings() {
+  const s = readLabelSettings();
+  applyLabelSettingsToUI(s);
+
+  labelPreset.addEventListener("change", () => {
+    const key = labelPreset.value;
+    if (key === "custom") {
+      const cur = uiToLabelSettings();
+      writeLabelSettings(cur);
+      setStatus(labelStatus, "Mode personnalisé.");
+      return;
+    }
+    applyPreset(key);
+  });
+
+  btnSaveLabelSettings.addEventListener("click", () => {
+    const cur = uiToLabelSettings();
+    writeLabelSettings(cur);
+    setStatus(labelStatus, "Réglages enregistrés ✅");
+  });
+
+  btnResetLabelSettings.addEventListener("click", () => {
+    const def = defaultLabelSettings();
+    applyLabelSettingsToUI(def);
+    writeLabelSettings(def);
+    setStatus(labelStatus, "Réglages réinitialisés.");
+  });
+})();
 
 // --- Auth state + gating ---
 function stopAllListeners() {
@@ -1074,10 +1208,11 @@ function applyRoleUI() {
   btnNewItem.disabled = !admin;
   btnSaveItem.disabled = !admin;
   btnDeleteItem.disabled = !admin;
+
   [edBarcode, edName, edUnit, edLocation, edLow, edCritical, edTags].forEach(el => el.disabled = !admin);
   if (!admin) edBarcode.disabled = true;
 
-  // settings panels
+  // panels
   adminPanel.hidden = !admin;
   importPanel.hidden = !admin;
 }
@@ -1089,6 +1224,8 @@ onAuthStateChanged(auth, async (user) => {
   setStatus(appStatus, "");
   setStatus(adminStatus, "");
   setStatus(importStatus, "");
+  setStatus(labelStatus, "");
+
   pendingList.innerHTML = "";
   dashCriticalList.innerHTML = "";
   dashCriticalHint.textContent = "";
@@ -1129,103 +1266,8 @@ onAuthStateChanged(auth, async (user) => {
   showView("app");
   setActiveTab("dash");
 
-  // admin: refresh pending
   if (isAdmin()) await refreshPendingUsers();
 
-  // listeners
   unsubscribeItems = startItemsListener();
   unsubscribeMoves = startMovesListener();
 });
-
-// --- Logout
-btnLogout.addEventListener("click", async () => { await signOut(auth); });
-btnLogout2.addEventListener("click", async () => { await signOut(auth); });
-
-// --- Login/Signup
-btnLogin.addEventListener("click", async () => {
-  try {
-    setStatus(status, "");
-    await signInWithEmailAndPassword(auth, safeTrim(email.value), safeTrim(password.value));
-  } catch (e) {
-    setStatus(status, e.message, true);
-  }
-});
-btnSignup.addEventListener("click", async () => {
-  try {
-    setStatus(status, "");
-    const pass = safeTrim(password.value);
-    if (pass.length < 6) return setStatus(status, "Mot de passe : 6 caractères minimum.", true);
-    await createUserWithEmailAndPassword(auth, safeTrim(email.value), pass);
-    await ensureMyPendingProfile();
-    setStatus(status, "Compte créé. En attente de validation admin.");
-  } catch (e) {
-    setStatus(status, e.message, true);
-  }
-});
-
-// --- Scan actions
-btnLoad.addEventListener("click", async () => {
-  const code = safeTrim(barcode.value);
-  if (!code) return setStatus(appStatus, "Entre/scanne un code-barres.", true);
-  await loadItem(code);
-});
-btnAdd.addEventListener("click", async () => {
-  const n = Math.max(1, toInt(qtyDelta.value, 1));
-  await moveQty(+n);
-});
-btnRemove.addEventListener("click", async () => {
-  const n = Math.max(1, toInt(qtyDelta.value, 1));
-  await moveQty(-n);
-});
-barcode.addEventListener("change", async () => {
-  const code = safeTrim(barcode.value);
-  if (code) await loadItem(code);
-});
-
-// --- Camera scan
-let codeReader = null;
-let scanning = false;
-async function startScan() {
-  setStatus(appStatus, "");
-  if (scanning) return;
-
-  scannerWrap.hidden = false;
-  btnStopScan.hidden = false;
-  btnScan.disabled = true;
-
-  codeReader = new BrowserMultiFormatReader();
-  scanning = true;
-
-  try {
-    const result = await codeReader.decodeOnceFromVideoDevice(null, video);
-    const text = (result && result.getText) ? result.getText() : "";
-    if (text) {
-      barcode.value = text;
-      setStatus(appStatus, "Scan OK: " + text);
-      await loadItem(text);
-    } else {
-      setStatus(appStatus, "Scan annulé / non détecté.", true);
-    }
-  } catch (e) {
-    setStatus(appStatus, "Erreur scan: " + e.message, true);
-  } finally {
-    stopScan();
-  }
-}
-function stopScan() {
-  scanning = false;
-  btnScan.disabled = false;
-  btnStopScan.hidden = true;
-  scannerWrap.hidden = true;
-
-  try { if (codeReader) codeReader.reset(); } catch {}
-  codeReader = null;
-
-  try {
-    const stream = video.srcObject;
-    if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
-    video.srcObject = null;
-  } catch {}
-}
-btnScan.addEventListener("click", startScan);
-btnStopScan.addEventListener("click", stopScan);
