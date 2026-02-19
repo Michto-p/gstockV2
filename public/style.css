@@ -202,8 +202,3 @@ footer { padding: 18px; text-align: center; color:#888; }
 .stockCard .top { display:flex; justify-content: space-between; gap: 10px; align-items:center; }
 .stockCard .name { font-weight: 900; }
 .stockCard .meta { color:#666; font-size: 12px; margin-top: 4px; }
-
-/* Print helper button spacing */
-@media print {
-  header, footer, .tabs, .tabPanel .row, .hint, button, input, select { display: none !important; }
-}
