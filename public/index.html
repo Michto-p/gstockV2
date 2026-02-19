@@ -48,9 +48,7 @@
     <!-- VIEW: PENDING -->
     <section id="viewPending" class="card" hidden>
       <h2>Compte en attente</h2>
-      <p>
-        Ton compte est créé, mais il doit être validé par un administrateur.
-      </p>
+      <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
       <div class="row">
         <button id="btnLogout2" class="ghost">Déconnexion</button>
         <span id="pendingInfo" class="status"></span>
@@ -59,52 +57,108 @@
 
     <!-- VIEW: APP -->
     <section id="viewApp" class="card" hidden>
-      <h2>Scan / Mouvement</h2>
-
-      <div class="row">
-        <button id="btnScan">Scanner un code-barres</button>
-        <button id="btnStopScan" class="ghost" hidden>Arrêter</button>
+      <div class="tabs">
+        <button id="tabBtnScan" class="tab active">Scan</button>
+        <button id="tabBtnSettings" class="tab">Paramètres</button>
       </div>
 
-      <div id="scannerWrap" class="scanner" hidden>
-        <video id="video" playsinline></video>
-        <div class="scanFrame"></div>
-        <div class="scanHint">Place le code-barres dans le cadre</div>
-      </div>
+      <!-- TAB: SCAN -->
+      <section id="tabScan" class="tabPanel">
+        <h2>Scan / Mouvement</h2>
 
-      <div class="grid2">
-        <div>
-          <label>Code-barres</label>
-          <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..." />
+        <div class="row">
+          <button id="btnScan">Scanner un code-barres</button>
+          <button id="btnStopScan" class="ghost" hidden>Arrêter</button>
         </div>
-        <div>
-          <label>Désignation (optionnel)</label>
-          <input id="name" placeholder="Ex: Gaine ICTA 20" />
+
+        <div id="scannerWrap" class="scanner" hidden>
+          <video id="video" playsinline></video>
+          <div class="scanFrame"></div>
+          <div class="scanHint">Place le code-barres dans le cadre</div>
         </div>
-      </div>
 
-      <div class="grid2">
-        <div>
-          <label>Quantité</label>
-          <input id="qtyDelta" type="number" min="1" step="1" value="1" />
+        <div class="grid2">
+          <div>
+            <label>Code-barres</label>
+            <input id="barcode" inputmode="numeric" placeholder="Ex: 356007..." />
+          </div>
+          <div>
+            <label>Désignation (optionnel)</label>
+            <input id="name" placeholder="Ex: Gaine ICTA 20" />
+          </div>
         </div>
-        <div>
-          <label>Motif (optionnel)</label>
-          <input id="reason" placeholder="TP / inventaire / commande..." />
+
+        <div class="grid2">
+          <div>
+            <label>Quantité</label>
+            <input id="qtyDelta" type="number" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label>Motif (optionnel)</label>
+            <input id="reason" placeholder="TP / inventaire / commande..." />
+          </div>
         </div>
-      </div>
 
-      <div class="row">
-        <button id="btnAdd">+ Ajouter</button>
-        <button id="btnRemove" class="danger">- Retirer</button>
-        <button id="btnLoad" class="ghost">Recharger l’article</button>
-      </div>
+        <div class="row">
+          <button id="btnAdd">+ Ajouter</button>
+          <button id="btnRemove" class="danger">- Retirer</button>
+          <button id="btnLoad" class="ghost">Recharger l’article</button>
+        </div>
 
-      <div class="row">
-        <span id="appStatus" class="status"></span>
-      </div>
+        <div class="row">
+          <span id="appStatus" class="status"></span>
+        </div>
 
-      <div id="itemBox" class="itemBox" hidden></div>
+        <div id="itemBox" class="itemBox" hidden></div>
+      </section>
+
+      <!-- TAB: SETTINGS -->
+      <section id="tabSettings" class="tabPanel" hidden>
+        <h2>Paramètres</h2>
+
+        <div class="itemBox">
+          <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
+          <div style="color:#666;font-size:12px;margin-top:6px">
+            Ici on mettra plus tard : import CSV, seuils, étiquettes…
+          </div>
+        </div>
+
+        <!-- ADMIN PANEL (visible seulement admin) -->
+        <section id="adminPanel" class="card innerCard" hidden>
+          <h3>Admin</h3>
+
+          <div class="row">
+            <button id="btnRefreshPending" class="ghost">Recharger les comptes en attente</button>
+            <span id="adminStatus" class="status"></span>
+          </div>
+
+          <div id="pendingList" class="list"></div>
+
+          <hr class="sep"/>
+
+          <h4>Zone dangereuse</h4>
+          <p class="hint">
+            “Vider le stock” met <b>toutes les quantités (qty) à 0</b> pour tous les articles.  
+            Ça ne supprime pas les articles (types) : seulement le stock.
+          </p>
+
+          <label class="checkRow">
+            <input type="checkbox" id="chkConfirmClear" />
+            Je confirme vouloir vider le stock
+          </label>
+
+          <div class="grid2">
+            <div>
+              <label>Écris <b>VIDER</b> pour confirmer</label>
+              <input id="txtConfirmClear" placeholder="VIDER" />
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <button id="btnClearStock" class="danger">Vider le stock (qty=0)</button>
+            </div>
+          </div>
+        </section>
+      </section>
     </section>
 
     <section id="viewMoves" class="card" hidden>
@@ -115,7 +169,7 @@
   </main>
 
   <footer>
-    <small>V2 — Auth + validation admin + rôles</small>
+    <small>V2 — Auth + validation admin + rôles + admin panel</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
