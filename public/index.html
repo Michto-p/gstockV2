@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Gstock — Scan</title>
+  <title>Gstock</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -58,12 +58,50 @@
     <!-- VIEW: APP -->
     <section id="viewApp" class="card" hidden>
       <div class="tabs">
-        <button id="tabBtnScan" class="tab active">Scan</button>
+        <button id="tabBtnDash" class="tab active">Dashboard</button>
+        <button id="tabBtnScan" class="tab">Scan</button>
+        <button id="tabBtnStock" class="tab">Stock</button>
         <button id="tabBtnSettings" class="tab">Paramètres</button>
       </div>
 
+      <!-- TAB: DASHBOARD -->
+      <section id="tabDash" class="tabPanel">
+        <h2>Dashboard</h2>
+
+        <div class="kpis">
+          <div class="kpi crit">
+            <div class="kpiLabel">Critique</div>
+            <div class="kpiValue" id="kpiCrit">0</div>
+          </div>
+          <div class="kpi low">
+            <div class="kpiLabel">Bas</div>
+            <div class="kpiValue" id="kpiLow">0</div>
+          </div>
+          <div class="kpi ok">
+            <div class="kpiLabel">OK</div>
+            <div class="kpiValue" id="kpiOk">0</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <input id="dashSearch" placeholder="Rechercher un article…" />
+          <button id="btnDashGoStock" class="ghost">Ouvrir Stock</button>
+        </div>
+
+        <div class="card innerCard">
+          <h3>Articles critiques</h3>
+          <div id="dashCriticalList" class="list"></div>
+          <p class="hint" id="dashCriticalHint"></p>
+        </div>
+
+        <div class="card innerCard">
+          <h3>Derniers mouvements</h3>
+          <div id="moves" class="moves"></div>
+        </div>
+      </section>
+
       <!-- TAB: SCAN -->
-      <section id="tabScan" class="tabPanel">
+      <section id="tabScan" class="tabPanel" hidden>
         <h2>Scan / Mouvement</h2>
 
         <div class="row">
@@ -112,6 +150,100 @@
         <div id="itemBox" class="itemBox" hidden></div>
       </section>
 
+      <!-- TAB: STOCK -->
+      <section id="tabStock" class="tabPanel" hidden>
+        <h2>Stock</h2>
+
+        <div class="row">
+          <input id="stockSearch" placeholder="Rechercher (nom, code, tags)..." />
+          <select id="stockFilter">
+            <option value="all">Tous</option>
+            <option value="crit">Critique</option>
+            <option value="low">Bas</option>
+            <option value="ok">OK</option>
+          </select>
+          <button id="btnNewItem" class="ghost">+ Nouveau (admin)</button>
+        </div>
+
+        <div class="stockLayout">
+          <div class="stockList">
+            <!-- Table (PC) -->
+            <div class="stockTableWrap">
+              <table class="stockTable">
+                <thead>
+                  <tr>
+                    <th>État</th>
+                    <th>Nom</th>
+                    <th>Code</th>
+                    <th class="num">Qté</th>
+                    <th class="num">Seuil bas</th>
+                    <th class="num">Critique</th>
+                  </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Cards (mobile) -->
+            <div id="stockCards" class="stockCards"></div>
+
+            <p class="hint" id="stockHint"></p>
+          </div>
+
+          <div class="stockEditor card innerCard" id="stockEditor">
+            <h3>Fiche article</h3>
+
+            <div class="grid2">
+              <div>
+                <label>Code-barres (ID)</label>
+                <input id="edBarcode" placeholder="3560..." />
+              </div>
+              <div>
+                <label>Nom</label>
+                <input id="edName" placeholder="Désignation..." />
+              </div>
+            </div>
+
+            <div class="grid2">
+              <div>
+                <label>Unité</label>
+                <input id="edUnit" placeholder="pcs / m / boite..." />
+              </div>
+              <div>
+                <label>Emplacement</label>
+                <input id="edLocation" placeholder="Armoire / atelier..." />
+              </div>
+            </div>
+
+            <div class="grid2">
+              <div>
+                <label>Seuil bas</label>
+                <input id="edLow" type="number" min="0" step="1" />
+              </div>
+              <div>
+                <label>Seuil critique</label>
+                <input id="edCritical" type="number" min="0" step="1" />
+              </div>
+            </div>
+
+            <div>
+              <label>Tags (séparés par virgule)</label>
+              <input id="edTags" placeholder="IRVE, consommable, atelier..." />
+            </div>
+
+            <div class="row">
+              <button id="btnSaveItem">Enregistrer (admin)</button>
+              <button id="btnDeleteItem" class="danger">Supprimer (admin)</button>
+              <span id="stockStatus" class="status"></span>
+            </div>
+
+            <p class="hint">
+              Rappel droits : <b>stock</b> = entrées/sorties uniquement (Scan). <b>visu</b> = lecture seule.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <!-- TAB: SETTINGS -->
       <section id="tabSettings" class="tabPanel" hidden>
         <h2>Paramètres</h2>
@@ -119,11 +251,11 @@
         <div class="itemBox">
           <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
           <div style="color:#666;font-size:12px;margin-top:6px">
-            Ici on mettra plus tard : import CSV, seuils, étiquettes…
+            (Étape suivante) Import CSV, export, étiquettes, etc.
           </div>
         </div>
 
-        <!-- ADMIN PANEL (visible seulement admin) -->
+        <!-- ADMIN PANEL -->
         <section id="adminPanel" class="card innerCard" hidden>
           <h3>Admin</h3>
 
@@ -138,8 +270,7 @@
 
           <h4>Zone dangereuse</h4>
           <p class="hint">
-            “Vider le stock” met <b>toutes les quantités (qty) à 0</b> pour tous les articles.  
-            Ça ne supprime pas les articles (types) : seulement le stock.
+            “Vider le stock” met <b>toutes les quantités (qty) à 0</b> pour tous les articles.
           </p>
 
           <label class="checkRow">
@@ -160,16 +291,10 @@
         </section>
       </section>
     </section>
-
-    <section id="viewMoves" class="card" hidden>
-      <h2>Derniers mouvements</h2>
-      <div id="moves" class="moves"></div>
-    </section>
-
   </main>
 
   <footer>
-    <small>V2 — Auth + validation admin + rôles + admin panel</small>
+    <small>Gstock V2 — Dashboard + Stock + Admin</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
