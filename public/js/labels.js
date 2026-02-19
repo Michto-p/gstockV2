@@ -1,14 +1,5 @@
 import JsBarcode from "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/+esm";
-import {
-  $,
-  itemsCache,
-  setStatus,
-  safeTrim,
-  toInt,
-  escapeHtml,
-  startItemsListener,
-  tabBtnLabels
-} from "./core.js";
+import { $, on, itemsCache, safeTrim, toInt, escapeHtml, setStatus } from "./core.js";
 
 const labelsSearch = $("labelsSearch");
 const btnLabelsSelectAll = $("btnLabelsSelectAll");
@@ -42,11 +33,9 @@ const lblShowBorder = $("lblShowBorder");
 const lblPadMm = $("lblPadMm");
 const lblNameLines = $("lblNameLines");
 
-// selection + qty map
 const selectedForLabels = new Set();
-const labelQtyById = new Map(); // id -> qty labels
+const labelQtyById = new Map();
 
-// ---------- SETTINGS ----------
 const KEY = "gstock_label_settings_v2";
 const PRESETS = {
   custom: null,
@@ -57,17 +46,7 @@ const PRESETS = {
 };
 
 function defaults(){
-  return {
-    preset: "averyL7160",
-    marginMm: 10, cols: 3, wMm: 63.5, hMm: 38.1,
-    gapXmm: 2.5, gapYmm: 0,
-    namePt: 10.5, codePt: 9,
-    barHmm: 16, barWidthPx: 2,
-    showLocation: true,
-    showBorder: false,
-    padMm: 2.5,
-    nameLines: 2
-  };
+  return { preset:"averyL7160", marginMm:10, cols:3, wMm:63.5, hMm:38.1, gapXmm:2.5, gapYmm:0, namePt:10.5, codePt:9, barHmm:16, barWidthPx:2, showLocation:true, showBorder:false, padMm:2.5, nameLines:2 };
 }
 function read(){
   try{
@@ -77,42 +56,47 @@ function read(){
   }catch{ return defaults(); }
 }
 function write(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
+
 function uiToSettings(){
   return {
-    preset: labelPreset.value || "custom",
-    marginMm: Number(lblMarginMm.value) || 0,
-    cols: Math.max(1, toInt(lblCols.value, 3)),
-    wMm: Number(lblWmm.value) || 63.5,
-    hMm: Number(lblHmm.value) || 38.1,
-    gapXmm: Number(lblGapXmm.value) || 0,
-    gapYmm: Number(lblGapYmm.value) || 0,
-    namePt: Number(lblNamePt.value) || 10,
-    codePt: Number(lblCodePt.value) || 9,
-    barHmm: Number(lblBarHmm.value) || 16,
-    barWidthPx: Math.max(1, toInt(lblBarWidthPx.value, 2)),
-    showLocation: !!lblShowLocation.checked,
-    showBorder: !!lblShowBorder.checked,
-    padMm: Number(lblPadMm.value) || 2.5,
-    nameLines: Math.max(1, toInt(lblNameLines.value, 2)),
+    preset: labelPreset?.value || "custom",
+    marginMm: Number(lblMarginMm?.value) || 0,
+    cols: Math.max(1, toInt(lblCols?.value, 3)),
+    wMm: Number(lblWmm?.value) || 63.5,
+    hMm: Number(lblHmm?.value) || 38.1,
+    gapXmm: Number(lblGapXmm?.value) || 0,
+    gapYmm: Number(lblGapYmm?.value) || 0,
+    namePt: Number(lblNamePt?.value) || 10,
+    codePt: Number(lblCodePt?.value) || 9,
+    barHmm: Number(lblBarHmm?.value) || 16,
+    barWidthPx: Math.max(1, toInt(lblBarWidthPx?.value, 2)),
+    showLocation: !!lblShowLocation?.checked,
+    showBorder: !!lblShowBorder?.checked,
+    padMm: Number(lblPadMm?.value) || 2.5,
+    nameLines: Math.max(1, toInt(lblNameLines?.value, 2)),
   };
 }
+
 function applyToUI(s){
-  labelPreset.value = s.preset || "custom";
-  lblMarginMm.value = String(s.marginMm);
-  lblCols.value = String(s.cols);
-  lblWmm.value = String(s.wMm);
-  lblHmm.value = String(s.hMm);
-  lblGapXmm.value = String(s.gapXmm);
-  lblGapYmm.value = String(s.gapYmm);
-  lblNamePt.value = String(s.namePt);
-  lblCodePt.value = String(s.codePt);
-  lblBarHmm.value = String(s.barHmm);
-  lblBarWidthPx.value = String(s.barWidthPx);
-  lblShowLocation.checked = !!s.showLocation;
-  lblShowBorder.checked = !!s.showBorder;
-  lblPadMm.value = String(s.padMm);
-  lblNameLines.value = String(s.nameLines);
+  const setVal = (el, v) => { if (el) el.value = String(v); };
+  const setChk = (el, v) => { if (el) el.checked = !!v; };
+  setVal(labelPreset, s.preset || "custom");
+  setVal(lblMarginMm, s.marginMm);
+  setVal(lblCols, s.cols);
+  setVal(lblWmm, s.wMm);
+  setVal(lblHmm, s.hMm);
+  setVal(lblGapXmm, s.gapXmm);
+  setVal(lblGapYmm, s.gapYmm);
+  setVal(lblNamePt, s.namePt);
+  setVal(lblCodePt, s.codePt);
+  setVal(lblBarHmm, s.barHmm);
+  setVal(lblBarWidthPx, s.barWidthPx);
+  setChk(lblShowLocation, s.showLocation);
+  setChk(lblShowBorder, s.showBorder);
+  setVal(lblPadMm, s.padMm);
+  setVal(lblNameLines, s.nameLines);
 }
+
 function applyPreset(key){
   const p = PRESETS[key];
   if(!p) return;
@@ -122,21 +106,13 @@ function applyPreset(key){
   setStatus(labelStatus, "Preset appliqué.");
 }
 
-// ---------- BARCODE SVG ----------
 function makeBarcodeSvg(value, opt){
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   const isEan13 = /^\d{13}$/.test(value);
-  JsBarcode(svg, value, {
-    format: isEan13 ? "EAN13" : "CODE128",
-    displayValue: false,
-    margin: 0,
-    width: opt?.barWidthPx ?? 2,
-    height: opt?.barPxHeight ?? 48
-  });
+  JsBarcode(svg, value, { format: isEan13 ? "EAN13" : "CODE128", displayValue:false, margin:0, width: opt?.barWidthPx ?? 2, height: opt?.barPxHeight ?? 48 });
   return svg.outerHTML;
 }
 
-// ---------- PLAN ITEMS ----------
 function getPlan(){
   const ids = Array.from(selectedForLabels);
   const out = [];
@@ -151,83 +127,13 @@ function getPlan(){
 }
 function updateCounters(){
   const p = getPlan();
-  labelsSelCount.textContent = String(p.selectedCount);
-  labelsTotalCount.textContent = String(p.total);
+  labelsSelCount && (labelsSelCount.textContent = String(p.selectedCount));
+  labelsTotalCount && (labelsTotalCount.textContent = String(p.total));
 }
 
-// ---------- RENDER LEFT LIST ----------
-function renderList(){
-  const q = safeTrim(labelsSearch.value).toLowerCase();
-  const list = itemsCache.filter(it=>{
-    const code = (it.barcode || it.id || "").toLowerCase();
-    const nm = (it.name || "").toLowerCase();
-    return !q || code.includes(q) || nm.includes(q);
-  });
-
-  labelsHint.textContent = `${list.length} article(s)`;
-  labelsList.innerHTML = "";
-
-  for(const it of list){
-    const id = it.id;
-    const code = it.barcode || it.id;
-    const checked = selectedForLabels.has(id);
-    const qty = Math.max(1, toInt(labelQtyById.get(id) ?? 1, 1));
-
-    const row = document.createElement("div");
-    row.className = "lblRow";
-    row.innerHTML = `
-      <div class="lblRowTop">
-        <div class="lblRowName">${escapeHtml(it.name || "(sans nom)")}</div>
-        <label class="checkRow" style="margin:0">
-          <input type="checkbox" ${checked ? "checked":""}>
-          <span style="font-size:12px;color:#666;font-weight:800">Imprimer</span>
-        </label>
-      </div>
-      <div class="lblRowCode">${escapeHtml(code)}</div>
-      <div class="lblRowMeta">${escapeHtml(it.location || "")}</div>
-      <div class="lblRowControls">
-        <div style="min-width:220px;flex:1">
-          ${makeBarcodeSvg(code, { barWidthPx: 2, barPxHeight: 36 })}
-        </div>
-        <div class="lblQtyInput">
-          <label style="margin-top:0">Nb étiquettes</label>
-          <input type="number" min="1" step="1" value="${qty}">
-        </div>
-      </div>
-    `;
-
-    const cb = row.querySelector('input[type="checkbox"]');
-    cb.addEventListener("change", (ev)=>{
-      if(ev.target.checked){
-        selectedForLabels.add(id);
-        if(!labelQtyById.has(id)) labelQtyById.set(id, 1);
-      }else{
-        selectedForLabels.delete(id);
-      }
-      updateCounters();
-      renderPreview();
-    });
-
-    const qtyInput = row.querySelector('input[type="number"]');
-    qtyInput.addEventListener("change", (ev)=>{
-      const v = Math.max(1, toInt(ev.target.value, 1));
-      ev.target.value = String(v);
-      labelQtyById.set(id, v);
-      updateCounters();
-      renderPreview();
-    });
-
-    labelsList.appendChild(row);
-  }
-
-  updateCounters();
-}
-
-// ---------- LABEL HTML (centered) ----------
 function buildLabelsHtml(items, override){
   const s0 = read();
   const s = { ...s0, ...(override||{}) };
-
   const pxPerMm = 3.78;
   const barPxHeight = Math.max(18, Math.round(s.barHmm * pxPerMm));
   const borderCss = s.showBorder ? "1px solid #000" : "0";
@@ -310,20 +216,78 @@ function openPrint(html){
   w.document.open(); w.document.write(html); w.document.close();
 }
 
-// ---------- PREVIEW (iframe) ----------
 function renderPreview(){
   if(!labelsPreviewFrame) return;
   const plan = getPlan();
   const s = read();
-  const patched = { ...s, showBorder: labelsPreviewBorder.checked ? true : s.showBorder };
-
-  const html = buildLabelsHtml(plan.items, patched);
-  labelsPreviewFrame.srcdoc = html;
+  const patched = { ...s, showBorder: labelsPreviewBorder?.checked ? true : s.showBorder };
+  labelsPreviewFrame.srcdoc = buildLabelsHtml(plan.items, patched);
 }
 
-// ---------- UI wiring ----------
-labelsSearch?.addEventListener("input", ()=>{ renderList(); renderPreview(); });
+function renderList(){
+  if(!labelsList) return;
+  const q = safeTrim(labelsSearch?.value).toLowerCase();
+  const list = itemsCache.filter(it=>{
+    const code = (it.barcode || it.id || "").toLowerCase();
+    const nm = (it.name || "").toLowerCase();
+    return !q || code.includes(q) || nm.includes(q);
+  });
 
+  labelsHint && (labelsHint.textContent = `${list.length} article(s)`);
+  labelsList.innerHTML = "";
+
+  for(const it of list){
+    const id = it.id;
+    const code = it.barcode || it.id;
+    const checked = selectedForLabels.has(id);
+    const qty = Math.max(1, toInt(labelQtyById.get(id) ?? 1, 1));
+
+    const row = document.createElement("div");
+    row.className = "lblRow";
+    row.innerHTML = `
+      <div class="lblRowTop">
+        <div class="lblRowName">${escapeHtml(it.name || "(sans nom)")}</div>
+        <label class="checkRow" style="margin:0">
+          <input type="checkbox" ${checked ? "checked":""}>
+          <span style="font-size:12px;color:#666;font-weight:900">Imprimer</span>
+        </label>
+      </div>
+      <div class="lblRowCode">${escapeHtml(code)}</div>
+      <div class="lblRowMeta">${escapeHtml(it.location || "")}</div>
+      <div class="lblRowControls">
+        <div style="min-width:220px;flex:1">${makeBarcodeSvg(code, { barWidthPx: 2, barPxHeight: 36 })}</div>
+        <div class="lblQtyInput">
+          <label style="margin-top:0">Nb étiquettes</label>
+          <input type="number" min="1" step="1" value="${qty}">
+        </div>
+      </div>
+    `;
+
+    row.querySelector('input[type="checkbox"]').addEventListener("change", (ev)=>{
+      if(ev.target.checked){
+        selectedForLabels.add(id);
+        if(!labelQtyById.has(id)) labelQtyById.set(id, 1);
+      }else{
+        selectedForLabels.delete(id);
+      }
+      updateCounters(); renderPreview();
+    });
+
+    row.querySelector('input[type="number"]').addEventListener("change", (ev)=>{
+      const v = Math.max(1, toInt(ev.target.value, 1));
+      ev.target.value = String(v);
+      labelQtyById.set(id, v);
+      updateCounters(); renderPreview();
+    });
+
+    labelsList.appendChild(row);
+  }
+
+  updateCounters();
+}
+
+// UI wiring
+labelsSearch?.addEventListener("input", ()=>{ renderList(); renderPreview(); });
 btnLabelsSelectAll?.addEventListener("click", ()=>{
   itemsCache.forEach(it=>{
     selectedForLabels.add(it.id);
@@ -339,13 +303,13 @@ btnLabelsPrint?.addEventListener("click", ()=>{
   const plan = getPlan();
   if(!plan.items.length) return alert("Sélectionne au moins 1 article.");
   const s = read();
-  const patched = { ...s, showBorder: labelsPreviewBorder.checked ? true : s.showBorder };
+  const patched = { ...s, showBorder: labelsPreviewBorder?.checked ? true : s.showBorder };
   openPrint(buildLabelsHtml(plan.items, patched));
 });
 btnLabelsPreview?.addEventListener("click", renderPreview);
 labelsPreviewBorder?.addEventListener("change", renderPreview);
 
-// Settings
+// Settings init
 (function initSettings(){
   const s = read();
   applyToUI(s);
@@ -378,26 +342,12 @@ labelsPreviewBorder?.addEventListener("change", renderPreview);
     renderPreview();
   });
 
-  // any input change => live preview
   [
-    lblMarginMm,lblCols,lblWmm,lblHmm,lblGapXmm,lblGapYmm,lblNamePt,lblCodePt,lblBarHmm,lblBarWidthPx,lblShowLocation,lblShowBorder,lblPadMm,lblNameLines
+    lblMarginMm,lblCols,lblWmm,lblHmm,lblGapXmm,lblGapYmm,lblPadMm,lblNameLines,lblNamePt,lblCodePt,lblBarHmm,lblBarWidthPx,lblShowLocation,lblShowBorder
   ].forEach(el=>{
-    el?.addEventListener("input", ()=>{
-      const cur = uiToSettings();
-      write(cur);
-      renderPreview();
-    });
+    el?.addEventListener("input", ()=>{ write(uiToSettings()); renderPreview(); });
+    el?.addEventListener("change", ()=>{ write(uiToSettings()); renderPreview(); });
   });
 })();
 
-// When tab labels clicked => refresh
-tabBtnLabels?.addEventListener("click", ()=>{
-  renderList();
-  renderPreview();
-});
-
-// Hook items cache updates
-startItemsListener(()=>{
-  renderList();
-  renderPreview();
-});
+on("items:updated", ()=>{ renderList(); renderPreview(); });

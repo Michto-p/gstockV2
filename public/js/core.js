@@ -1,8 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 /** ✅ TA CONFIG */
 export const firebaseConfig = {
@@ -20,15 +18,18 @@ export const db = getFirestore(app);
 
 export const $ = (id) => document.getElementById(id);
 
-// Views
+// Header / Views
+export const authState = $("authState");
+export const btnLogout = $("btnLogout");
+export const btnLogout2 = $("btnLogout2");
+
 export const viewLogin = $("viewLogin");
 export const viewPending = $("viewPending");
 export const viewApp = $("viewApp");
 
-// Header
-export const authState = $("authState");
-export const btnLogout = $("btnLogout");
-export const btnLogout2 = $("btnLogout2");
+export const roleLabel = $("roleLabel");
+export const pendingInfo = $("pendingInfo");
+export const status = $("status");
 
 // Tabs
 export const tabBtnDash = $("tabBtnDash");
@@ -43,17 +44,19 @@ export const tabStock = $("tabStock");
 export const tabLabels = $("tabLabels");
 export const tabSettings = $("tabSettings");
 
-export const roleLabel = $("roleLabel");
-export const status = $("status");
-
 // State
 export let itemsCache = [];
 export let currentRole = "pending";
 export let currentApproved = false;
 
-// Paths
-export function userDocRef(uid){ return doc(db, "users", uid); }
-export function itemsColRef(){ return collection(db, "items"); }
+export function isAdmin(){ return currentRole === "admin"; }
+export function canMoveStock(){ return currentRole === "admin" || currentRole === "stock"; }
+
+// Firestore paths
+export const usersColRef = () => collection(db, "users");
+export const itemsColRef = () => collection(db, "items");
+export const movesColRef = () => collection(db, "moves");
+export const userDocRef = (uid) => doc(db, "users", uid);
 
 // Helpers
 export function setStatus(el, msg, isError=false){
@@ -75,21 +78,37 @@ export function escapeHtml(s){
     .replaceAll("'", "&#039;");
 }
 
-// Tabs UI
+// Views/tabs
+export function showView(view){
+  if(viewLogin) viewLogin.hidden = view !== "login";
+  if(viewPending) viewPending.hidden = view !== "pending";
+  if(viewApp) viewApp.hidden = view !== "app";
+}
 export function setActiveTab(tab){
   const map = { dash: tabDash, scan: tabScan, stock: tabStock, labels: tabLabels, settings: tabSettings };
-  for(const [k, el] of Object.entries(map)) el.hidden = (k !== tab);
-
+  for(const [k, el] of Object.entries(map)){
+    if(el) el.hidden = (k !== tab);
+  }
   tabBtnDash?.classList.toggle("active", tab === "dash");
   tabBtnScan?.classList.toggle("active", tab === "scan");
   tabBtnStock?.classList.toggle("active", tab === "stock");
   tabBtnLabels?.classList.toggle("active", tab === "labels");
   tabBtnSettings?.classList.toggle("active", tab === "settings");
 }
-export function showView(view){
-  viewLogin.hidden = view !== "login";
-  viewPending.hidden = view !== "pending";
-  viewApp.hidden = view !== "app";
+
+// Tiny event bus
+const listeners = new Map();
+export function on(event, fn){
+  if(!listeners.has(event)) listeners.set(event, new Set());
+  listeners.get(event).add(fn);
+  return () => listeners.get(event)?.delete(fn);
+}
+export function emit(event, payload){
+  const set = listeners.get(event);
+  if(!set) return;
+  for(const fn of set){
+    try{ fn(payload); }catch(e){ console.warn("event handler", event, e); }
+  }
 }
 
 // Profile
@@ -114,53 +133,68 @@ export async function getMyProfile(){
   return snap.exists() ? snap.data() : null;
 }
 
-// Items listener
-let unsubscribeItems = null;
-export function startItemsListener(onUpdate){
+// Snapshot listeners
+let unsubItems = null;
+let unsubMoves = null;
+
+export function startItemsListener(){
+  if(unsubItems) unsubItems();
   const q = query(itemsColRef(), orderBy("name"), limit(2000));
-  unsubscribeItems = onSnapshot(q, (snap)=>{
+  unsubItems = onSnapshot(q, (snap)=>{
     itemsCache = [];
-    snap.forEach(d => itemsCache.push({ id: d.id, ...d.data() }));
-    onUpdate?.();
+    snap.forEach(d => itemsCache.push({ id:d.id, ...d.data() }));
+    emit("items:updated", itemsCache);
   }, (err)=>console.warn("Items listener:", err));
 }
+export function startMovesListener(){
+  if(unsubMoves) unsubMoves();
+  const q = query(movesColRef(), orderBy("at","desc"), limit(12));
+  unsubMoves = onSnapshot(q, (snap)=>emit("moves:snapshot", snap), (err)=>console.warn("Moves listener:", err));
+}
+export function stopAllListeners(){
+  if(unsubItems) unsubItems(); unsubItems = null;
+  if(unsubMoves) unsubMoves(); unsubMoves = null;
+  itemsCache = [];
+}
 
-// Wire tabs + logout
-tabBtnDash?.addEventListener("click", ()=>setActiveTab("dash"));
-tabBtnScan?.addEventListener("click", ()=>setActiveTab("scan"));
-tabBtnStock?.addEventListener("click", ()=>setActiveTab("stock"));
-tabBtnLabels?.addEventListener("click", ()=>setActiveTab("labels"));
-tabBtnSettings?.addEventListener("click", ()=>setActiveTab("settings"));
-
+// Logout
 btnLogout?.addEventListener("click", async ()=>{ await signOut(auth); });
 btnLogout2?.addEventListener("click", async ()=>{ await signOut(auth); });
 
 // Auth gate
 onAuthStateChanged(auth, async (user)=>{
+  stopAllListeners();
+
   if(!user){
-    authState.textContent = "Non connecté";
-    btnLogout.hidden = true;
+    authState && (authState.textContent = "Non connecté");
+    btnLogout && (btnLogout.hidden = true);
     showView("login");
+    emit("auth:changed", { user:null, approved:false, role:"pending" });
     return;
   }
 
-  btnLogout.hidden = false;
-  authState.textContent = `Connecté : ${user.email}`;
+  btnLogout && (btnLogout.hidden = false);
+  authState && (authState.textContent = `Connecté : ${user.email}`);
 
   await ensureMyPendingProfile();
   const profile = await getMyProfile();
 
   currentApproved = !!profile?.approved;
   currentRole = profile?.role || "pending";
-  roleLabel.textContent = currentRole;
+  roleLabel && (roleLabel.textContent = currentRole);
 
-  authState.textContent = `Connecté : ${user.email} — rôle: ${currentRole}${currentApproved ? "" : " (non validé)"}`;
+  authState && (authState.textContent = `Connecté : ${user.email} — rôle: ${currentRole}${currentApproved ? "" : " (non validé)"}`);
 
   if(!currentApproved || currentRole === "pending"){
     showView("pending");
+    pendingInfo && (pendingInfo.textContent = "En attente de validation par un admin.");
+    emit("auth:changed", { user, approved:false, role:currentRole });
     return;
   }
 
   showView("app");
-  setActiveTab("labels");
+  setActiveTab("dash");
+  startItemsListener();
+  startMovesListener();
+  emit("auth:changed", { user, approved:true, role:currentRole });
 });
