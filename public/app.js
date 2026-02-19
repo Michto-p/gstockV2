@@ -295,7 +295,7 @@ barcode.addEventListener("change", async () => {
 });
 
 // Auth state listener
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     authState.textContent = `Connecté : ${user.isAnonymous ? "anonyme" : user.email} (${user.uid.slice(0,6)}…)`;
     btnLogout.hidden = false;
