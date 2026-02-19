@@ -24,18 +24,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ZXing (scan caméra, iPhone-friendly)
-import {
-  BrowserMultiFormatReader
-} from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
+import { BrowserMultiFormatReader } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 
-/** 1) REMPLACE ICI PAR TA CONFIG FIREBASE (console Firebase > paramètres du projet) */
+/** REMPLACE ICI PAR TA CONFIG FIREBASE (console Firebase > paramètres du projet) */
 const firebaseConfig = {
-  apiKey: "AIzaSyCf39dzQgHBVao0TOTUqh1q2ytK7BhE9gc",
-  authDomain: "gstock-27d16.firebaseapp.com",
-  projectId: "gstock-27d16",
-  storageBucket: "gstock-27d16.firebasestorage.app",
-  messagingSenderId: "1038968834828",
-  appId: "1:1038968834828:web:eeb2bb128c58622dda1729"
+  apiKey: "REPLACE_ME",
+  authDomain: "REPLACE_ME",
+  projectId: "REPLACE_ME",
+  appId: "REPLACE_ME"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -91,13 +87,28 @@ function movesColRef() {
   return collection(db, "moves");
 }
 
+// --- ROLES (admin/user) ---
+async function ensureMyUserDoc() {
+  // Crée users/{uid} si absent (role=user)
+  if (!auth.currentUser) return;
+  const uid = auth.currentUser.uid;
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      role: "user",
+      email: auth.currentUser.email || "",
+      createdAt: serverTimestamp()
+    }, { merge: true });
+  }
+}
+
 async function getMyRole() {
   if (!auth.currentUser) return "guest";
   const ref = doc(db, "users", auth.currentUser.uid);
   const snap = await getDoc(ref);
   return snap.exists() ? (snap.data().role || "user") : "user";
 }
-
 
 // Load item
 async function loadItem(code) {
@@ -235,7 +246,6 @@ async function startScan() {
   scanning = true;
 
   try {
-    // camera arrière si possible
     const result = await codeReader.decodeOnceFromVideoDevice(null, video);
     const text = (result && result.getText) ? result.getText() : "";
     if (text) {
@@ -263,7 +273,6 @@ function stopScan() {
   } catch {}
   codeReader = null;
 
-  // stop video tracks
   try {
     const stream = video.srcObject;
     if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
@@ -288,30 +297,30 @@ btnLoad.addEventListener("click", async () => {
   }
 });
 
-// Auto-load when barcode changed
 barcode.addEventListener("change", async () => {
   const code = safeTrim(barcode.value);
   if (code) await loadItem(code);
 });
 
-// Auth state listener
+// Auth state listener  ✅ IMPORTANT: async ici (sinon "Unexpected reserved word" avec await)
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    authState.textContent = `Connecté : ${user.isAnonymous ? "anonyme" : user.email} (${user.uid.slice(0,6)}…)`;
+    // crée users/{uid} si absent
+    await ensureMyUserDoc();
+
+    // récupère rôle
+    const role = await getMyRole();
+
+    authState.textContent = `Connecté : ${user.isAnonymous ? "anonyme" : user.email} (${user.uid.slice(0,6)}…) — rôle: ${role}`;
     btnLogout.hidden = false;
     setStatus("Connecté.");
 
-    const role = await getMyRole();
-      authState.textContent += ` — rôle: ${role}`;
-
-      const canEditStock = (role === "admin");
-      btnAdd.disabled = !canEditStock;
-      btnRemove.disabled = !canEditStock;
-
+    const canEditStock = (role === "admin");
+    btnAdd.disabled = !canEditStock;
+    btnRemove.disabled = !canEditStock;
 
     if (unsubscribeMoves) unsubscribeMoves();
     unsubscribeMoves = startMovesListener();
-
   } else {
     authState.textContent = "Non connecté";
     btnLogout.hidden = true;
@@ -320,9 +329,12 @@ onAuthStateChanged(auth, async (user) => {
     btnAdd.disabled = true;
     btnRemove.disabled = true;
 
-
     if (unsubscribeMoves) unsubscribeMoves();
     unsubscribeMoves = null;
     moves.innerHTML = "";
   }
 });
+
+// Par défaut, tant qu'on n'a pas le rôle, on désactive
+btnAdd.disabled = true;
+btnRemove.disabled = true;
