@@ -16,6 +16,36 @@
   </header>
 
   <main>
+    <section id="viewLogin" class="card">
+  <h2>Connexion</h2>
+
+  <div class="grid2">
+    <div>
+      <label>Email</label>
+      <input id="email" type="email" placeholder="email@exemple.fr" autocomplete="username" />
+    </div>
+    <div>
+      <label>Mot de passe</label>
+      <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="btnLogin">Se connecter</button>
+    <button id="btnSignup" class="ghost">Créer un compte</button>
+  </div>
+
+  <p class="hint">Ton compte devra être validé par un admin avant accès.</p>
+</section>
+
+<section id="viewPending" class="card" hidden>
+  <h2>Compte en attente</h2>
+  <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
+  <div class="row">
+    <button id="btnLogout2" class="ghost">Déconnexion</button>
+  </div>
+</section>
+
     <section class="card">
       <h2>Connexion</h2>
 
