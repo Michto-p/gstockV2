@@ -1182,7 +1182,7 @@ btnPrintSelected.addEventListener("click", () => {
     writeLabelSettings(def);
     setStatus(labelStatus, "Réglages réinitialisés.");
   });
-});
+})();
 
 // --- Auth state + gating ---
 function stopAllListeners() {
