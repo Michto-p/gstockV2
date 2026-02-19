@@ -36,9 +36,7 @@
         <button id="btnSignup" class="ghost">Créer un compte</button>
       </div>
 
-      <p class="hint">
-        Après inscription, un administrateur doit valider ton compte.
-      </p>
+      <p class="hint">Après inscription, un administrateur doit valider ton compte.</p>
 
       <div class="row">
         <span id="status" class="status"></span>
@@ -163,28 +161,28 @@
             <option value="ok">OK</option>
           </select>
           <button id="btnNewItem" class="ghost">+ Nouveau (admin)</button>
+          <button id="btnPrintSelected" class="ghost">Imprimer étiquettes (sélection)</button>
         </div>
 
         <div class="stockLayout">
           <div class="stockList">
-            <!-- Table (PC) -->
             <div class="stockTableWrap">
               <table class="stockTable">
                 <thead>
                   <tr>
+                    <th></th>
                     <th>État</th>
                     <th>Nom</th>
                     <th>Code</th>
                     <th class="num">Qté</th>
-                    <th class="num">Seuil bas</th>
-                    <th class="num">Critique</th>
+                    <th class="num">Bas</th>
+                    <th class="num">Crit</th>
                   </tr>
                 </thead>
                 <tbody id="stockTableBody"></tbody>
               </table>
             </div>
 
-            <!-- Cards (mobile) -->
             <div id="stockCards" class="stockCards"></div>
 
             <p class="hint" id="stockHint"></p>
@@ -227,18 +225,19 @@
             </div>
 
             <div>
-              <label>Tags (séparés par virgule)</label>
-              <input id="edTags" placeholder="IRVE, consommable, atelier..." />
+              <label>Tags (virgules ou |)</label>
+              <input id="edTags" placeholder="IRVE, consommable | atelier..." />
             </div>
 
             <div class="row">
               <button id="btnSaveItem">Enregistrer (admin)</button>
               <button id="btnDeleteItem" class="danger">Supprimer (admin)</button>
+              <button id="btnPrintOne" class="ghost">Imprimer étiquette (1)</button>
               <span id="stockStatus" class="status"></span>
             </div>
 
             <p class="hint">
-              Rappel droits : <b>stock</b> = entrées/sorties uniquement (Scan). <b>visu</b> = lecture seule.
+              Droits : <b>stock</b> = entrées/sorties (Scan) • <b>visu</b> = lecture seule.
             </p>
           </div>
         </div>
@@ -251,9 +250,36 @@
         <div class="itemBox">
           <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
           <div style="color:#666;font-size:12px;margin-top:6px">
-            (Étape suivante) Import CSV, export, étiquettes, etc.
+            Import CSV + étiquettes + admin.
           </div>
         </div>
+
+        <!-- IMPORT (ADMIN) -->
+        <section id="importPanel" class="card innerCard" hidden>
+          <h3>Import CSV (admin)</h3>
+
+          <p class="hint">
+            Colonnes attendues : <b>barcode,name,qty,unit,location,low,critical,tags</b><br/>
+            Séparateur : <b>,</b> ou <b>;</b>. Tags séparés par <b>|</b> ou virgules.
+          </p>
+
+          <div class="row">
+            <button id="btnDownloadCsvTemplate" class="ghost">Télécharger modèle CSV</button>
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+          </div>
+
+          <div class="row">
+            <label class="checkRow">
+              <input type="checkbox" id="chkImportMerge" checked />
+              Fusionner (merge) : met à jour si existe, crée sinon
+            </label>
+          </div>
+
+          <div class="row">
+            <button id="btnImportCsv">Importer</button>
+            <span id="importStatus" class="status"></span>
+          </div>
+        </section>
 
         <!-- ADMIN PANEL -->
         <section id="adminPanel" class="card innerCard" hidden>
@@ -269,9 +295,7 @@
           <hr class="sep"/>
 
           <h4>Zone dangereuse</h4>
-          <p class="hint">
-            “Vider le stock” met <b>toutes les quantités (qty) à 0</b> pour tous les articles.
-          </p>
+          <p class="hint">“Vider le stock” met <b>toutes les quantités (qty) à 0</b>.</p>
 
           <label class="checkRow">
             <input type="checkbox" id="chkConfirmClear" />
@@ -294,7 +318,7 @@
   </main>
 
   <footer>
-    <small>Gstock V2 — Dashboard + Stock + Admin</small>
+    <small>Gstock V2 — Étape 3 (Import + Étiquettes)</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
