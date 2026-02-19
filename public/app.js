@@ -1055,7 +1055,8 @@ function normalizeRow(r) {
 
   if (!barcode) return null;
   return { barcode, name, qty, unit, location, low, critical, tags };
-}
+};
+
 async function importRows(rows, merge = true) {
   if (!isAdmin()) throw new Error("Admin uniquement.");
 
