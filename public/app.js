@@ -740,8 +740,8 @@ barcode.addEventListener("change", async () => {
   if (code) await loadItem(code);
 });
 
-// --- Camera scan ---
-let codeReader = null;
+// --- Camera scan (ZXing) ---
+let codeReaderZX = null;
 let scanning = false;
 
 async function startScan() {
@@ -752,11 +752,11 @@ async function startScan() {
   btnStopScan.hidden = false;
   btnScan.disabled = true;
 
-  codeReader = new BrowserMultiFormatReader();
+  codeReaderZX = new BrowserMultiFormatReader();
   scanning = true;
 
   try {
-    const result = await codeReader.decodeOnceFromVideoDevice(null, video);
+    const result = await codeReaderZX.decodeOnceFromVideoDevice(null, video);
     const text = (result && result.getText) ? result.getText() : "";
     if (text) {
       barcode.value = text;
@@ -771,14 +771,15 @@ async function startScan() {
     stopScan();
   }
 }
+
 function stopScan() {
   scanning = false;
   btnScan.disabled = false;
   btnStopScan.hidden = true;
   scannerWrap.hidden = true;
 
-  try { if (codeReader) codeReader.reset(); } catch {}
-  codeReader = null;
+  try { if (codeReaderZX) codeReaderZX.reset(); } catch {}
+  codeReaderZX = null;
 
   try {
     const stream = video.srcObject;
@@ -786,8 +787,10 @@ function stopScan() {
     video.srcObject = null;
   } catch {}
 }
+
 btnScan.addEventListener("click", startScan);
 btnStopScan.addEventListener("click", stopScan);
+
 
 // --- Auth UI ---
 btnLogin.addEventListener("click", async () => {
