@@ -25,7 +25,16 @@ main { max-width: 760px; margin: 0 auto; padding: 12px; display: grid; gap: 12px
   padding: 14px;
   box-shadow: 0 6px 18px rgba(0,0,0,.04);
 }
+.innerCard {
+  margin-top: 12px;
+  border-radius: 14px;
+  box-shadow: none;
+  background: #fbfbfe;
+}
+
 h2 { margin: 0 0 10px; font-size: 16px; }
+h3 { margin: 0 0 10px; font-size: 15px; }
+h4 { margin: 14px 0 8px; font-size: 14px; }
 
 label { display:block; font-size: 12px; color:#555; margin: 10px 0 6px; }
 input {
@@ -101,3 +110,41 @@ button:disabled { opacity: .6; cursor: not-allowed; }
 .move .meta { color:#666; font-size: 12px; }
 
 footer { padding: 18px; text-align: center; color:#888; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tab {
+  background: #eef2ff;
+  color: #193a8a;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 800;
+}
+.tab.active {
+  background: #2b6ef3;
+  color: #fff;
+}
+.tabPanel { margin-top: 4px; }
+
+/* Admin list */
+.sep { border: 0; border-top: 1px solid #e7e8ef; margin: 14px 0; }
+.list { display: grid; gap: 10px; margin-top: 10px; }
+.userRow {
+  border: 1px solid #e7e8ef;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.userRow .top {
+  display:flex; justify-content: space-between; gap: 10px; align-items: center;
+}
+.userRow .email { font-weight: 900; }
+.userRow .meta { color:#666; font-size: 12px; margin-top: 4px; }
+.userRow .actions { display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.checkRow { display:flex; gap: 10px; align-items: center; }
+.checkRow input { width: auto; }
