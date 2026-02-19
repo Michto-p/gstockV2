@@ -28,10 +28,12 @@ import { BrowserMultiFormatReader } from "https://cdn.jsdelivr.net/npm/@zxing/br
 
 /** REMPLACE ICI PAR TA CONFIG FIREBASE (console Firebase > paramètres du projet) */
 const firebaseConfig = {
-  apiKey: "REPLACE_ME",
-  authDomain: "REPLACE_ME",
-  projectId: "REPLACE_ME",
-  appId: "REPLACE_ME"
+  apiKey: "AIzaSyCf39dzQgHBVao0TOTUqh1q2ytK7BhE9gc",
+  authDomain: "gstock-27d16.firebaseapp.com",
+  projectId: "gstock-27d16",
+  storageBucket: "gstock-27d16.firebasestorage.app",
+  messagingSenderId: "1038968834828",
+  appId: "1:1038968834828:web:eeb2bb128c58622dda1729"
 };
 
 const app = initializeApp(firebaseConfig);
