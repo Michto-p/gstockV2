@@ -16,7 +16,7 @@ header {
 h1 { margin: 0 0 6px; font-size: 18px; }
 .sub { display: flex; gap: 10px; align-items: center; color:#555; }
 
-main { max-width: 980px; margin: 0 auto; padding: 12px; display: grid; gap: 12px; }
+main { max-width: 1080px; margin: 0 auto; padding: 12px; display: grid; gap: 12px; }
 
 .card {
   background: white;
@@ -137,14 +137,12 @@ footer { padding: 18px; text-align: center; color:#888; }
 .userRow .email { font-weight: 900; }
 .userRow .meta { color:#666; font-size: 12px; margin-top: 4px; }
 .userRow .actions { display:flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-
 .checkRow { display:flex; gap: 10px; align-items: center; }
 .checkRow input { width: auto; }
 
 /* Dashboard KPIs */
 .kpis { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 @media (max-width: 620px) { .kpis { grid-template-columns: 1fr; } }
-
 .kpi {
   border: 1px solid #e7e8ef;
   border-radius: 14px;
@@ -177,12 +175,10 @@ footer { padding: 18px; text-align: center; color:#888; }
   gap: 12px;
   align-items:start;
 }
-@media (max-width: 900px) {
-  .stockLayout { grid-template-columns: 1fr; }
-}
+@media (max-width: 900px) { .stockLayout { grid-template-columns: 1fr; } }
 
 .stockTableWrap { overflow:auto; border:1px solid #e7e8ef; border-radius: 12px; }
-.stockTable { width:100%; border-collapse: collapse; min-width: 720px; }
+.stockTable { width:100%; border-collapse: collapse; min-width: 760px; }
 .stockTable th, .stockTable td { padding: 10px; border-bottom: 1px solid #eef0f7; text-align:left; }
 .stockTable th { font-size: 12px; color:#666; background:#fbfbfe; position: sticky; top: 0; }
 .stockTable td { font-size: 14px; }
@@ -206,3 +202,8 @@ footer { padding: 18px; text-align: center; color:#888; }
 .stockCard .top { display:flex; justify-content: space-between; gap: 10px; align-items:center; }
 .stockCard .name { font-weight: 900; }
 .stockCard .meta { color:#666; font-size: 12px; margin-top: 4px; }
+
+/* Print helper button spacing */
+@media print {
+  header, footer, .tabs, .tabPanel .row, .hint, button, input, select { display: none !important; }
+}
