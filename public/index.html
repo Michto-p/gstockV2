@@ -250,7 +250,7 @@
         <div class="itemBox">
           <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
           <div style="color:#666;font-size:12px;margin-top:6px">
-            Import CSV + étiquettes + admin.
+            Import CSV + réglages étiquettes + admin.
           </div>
         </div>
 
@@ -259,7 +259,7 @@
           <h3>Import CSV (admin)</h3>
 
           <p class="hint">
-            Colonnes attendues : <b>barcode,name,qty,unit,location,low,critical,tags</b><br/>
+            Colonnes : <b>barcode,name,qty,unit,location,low,critical,tags</b><br/>
             Séparateur : <b>,</b> ou <b>;</b>. Tags séparés par <b>|</b> ou virgules.
           </p>
 
@@ -279,6 +279,98 @@
             <button id="btnImportCsv">Importer</button>
             <span id="importStatus" class="status"></span>
           </div>
+        </section>
+
+        <!-- LABELS SETTINGS -->
+        <section id="labelsPanel" class="card innerCard">
+          <h3>Étiquettes (A4 prédécoupées)</h3>
+
+          <div class="row">
+            <select id="labelPreset">
+              <option value="custom">Personnalisé</option>
+              <option value="averyL7160">Avery L7160 (63.5 x 38.1 mm, 3x7)</option>
+              <option value="averyL7163">Avery L7163 (99.1 x 38.1 mm, 2x7)</option>
+              <option value="averyL7651">Avery L7651 (63.5 x 33.9 mm, 3x8)</option>
+              <option value="generic3x8">Générique 3x8 (70 x 35 mm)</option>
+            </select>
+            <button id="btnSaveLabelSettings" class="ghost">Enregistrer réglages</button>
+            <button id="btnResetLabelSettings" class="ghost">Réinitialiser</button>
+            <span id="labelStatus" class="status"></span>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label>Marges page (mm)</label>
+              <input id="lblMarginMm" type="number" step="0.1" min="0" value="10" />
+            </div>
+            <div>
+              <label>Colonnes</label>
+              <input id="lblCols" type="number" step="1" min="1" value="3" />
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label>Largeur étiquette (mm)</label>
+              <input id="lblWmm" type="number" step="0.1" min="10" value="63.5" />
+            </div>
+            <div>
+              <label>Hauteur étiquette (mm)</label>
+              <input id="lblHmm" type="number" step="0.1" min="10" value="38.1" />
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label>Espacement horizontal (mm)</label>
+              <input id="lblGapXmm" type="number" step="0.1" min="0" value="2.5" />
+            </div>
+            <div>
+              <label>Espacement vertical (mm)</label>
+              <input id="lblGapYmm" type="number" step="0.1" min="0" value="0" />
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label>Taille texte nom (pt)</label>
+              <input id="lblNamePt" type="number" step="0.5" min="6" value="10.5" />
+            </div>
+            <div>
+              <label>Taille texte code (pt)</label>
+              <input id="lblCodePt" type="number" step="0.5" min="6" value="9" />
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label>Hauteur code-barres (mm)</label>
+              <input id="lblBarHmm" type="number" step="0.5" min="10" value="16" />
+            </div>
+            <div>
+              <label>Épaisseur barres (px)</label>
+              <input id="lblBarWidthPx" type="number" step="1" min="1" value="2" />
+            </div>
+          </div>
+
+          <div class="row">
+            <label class="checkRow" style="margin:0">
+              <input type="checkbox" id="lblShowLocation" checked />
+              Afficher emplacement
+            </label>
+            <label class="checkRow" style="margin:0">
+              <input type="checkbox" id="lblShowQty" />
+              Afficher quantité
+            </label>
+            <label class="checkRow" style="margin:0">
+              <input type="checkbox" id="lblShowBorder" />
+              Afficher contour (pour tests)
+            </label>
+          </div>
+
+          <p class="hint">
+            Astuce : imprime avec “contour” une page test, puis ajuste marges/gaps.
+          </p>
         </section>
 
         <!-- ADMIN PANEL -->
@@ -318,7 +410,7 @@
   </main>
 
   <footer>
-    <small>Gstock V2 — Étape 3 (Import + Étiquettes)</small>
+    <small>Gstock V2 — Import + Étiquettes réglables</small>
   </footer>
 
   <script type="module" src="./app.js"></script>
