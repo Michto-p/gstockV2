@@ -1,365 +1,121 @@
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Gstock</title>
-  <link rel="stylesheet" href="./style.css" />
-  <link rel="icon" href="/favicon.png">
-</head>
-<body>
-  <header>
-    <h1>Gstock</h1>
-    <div class="sub">
-      <span id="authState">Non connecté</span>
-      <button id="btnLogout" class="ghost" hidden>Déconnexion</button>
-    </div>
-  </header>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Gstock</title><link rel="stylesheet" href="./style.css"/><link rel="icon" href="/favicon.png"></head><body>
+<header><h1>Gstock</h1><div class="sub"><span id="authState">Non connecté</span><button id="btnLogout" class="ghost" hidden>Déconnexion</button></div></header>
+<main>
+<section id="viewLogin" class="card"><h2>Connexion</h2>
+<div class="grid2"><div><label>Email</label><input id="email" type="email"/></div>
+<div><label>Mot de passe</label><div class="pwRow"><input id="password" type="password"/><button id="btnTogglePw" class="ghost pwBtn" type="button">Afficher</button></div></div></div>
+<div class="row"><button id="btnLogin" type="button">Se connecter</button><button id="btnSignup" class="ghost" type="button">Créer un compte</button></div>
+<div class="row"><button id="btnForgotPw" class="ghost" type="button">Mot de passe oublié</button></div>
+<p class="hint">Après inscription, un administrateur doit valider ton compte.</p>
+<div class="row"><span id="status" class="status"></span></div></section>
+<section id="viewPending" class="card" hidden><h2>Compte en attente</h2><p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
+<div class="row"><button id="btnLogout2" class="ghost" type="button">Déconnexion</button><span id="pendingInfo" class="status"></span></div></section>
 
-  <main>
-    <section id="viewLogin" class="card">
-      <h2>Connexion</h2>
+<section id="viewApp" class="card" hidden>
+<div class="tabs">
+<button id="tabBtnDash" class="tab active" type="button">Dashboard</button>
+<button id="tabBtnScan" class="tab" type="button">Scan</button>
+<button id="tabBtnStock" class="tab" type="button">Stock</button>
+<button id="tabBtnLabels" class="tab" type="button">Étiquettes</button>
+<button id="tabBtnSettings" class="tab" type="button">Paramètres</button>
+</div>
 
-      <div class="grid2">
-        <div>
-          <label>Email</label>
-          <input id="email" type="email" placeholder="email@exemple.fr" autocomplete="username" />
-        </div>
+<section id="tabDash" class="tabPanel">
+<h2>Dashboard</h2>
+<div class="kpis">
+<div class="kpi crit"><div class="kpiLabel">Critique</div><div class="kpiValue" id="kpiCrit">0</div></div>
+<div class="kpi low"><div class="kpiLabel">Bas</div><div class="kpiValue" id="kpiLow">0</div></div>
+<div class="kpi ok"><div class="kpiLabel">OK</div><div class="kpiValue" id="kpiOk">0</div></div>
+</div>
+<div class="row"><input id="dashSearch" placeholder="Rechercher un article…"/><button id="btnDashGoStock" class="ghost" type="button">Ouvrir Stock</button></div>
+<div class="card innerCard"><h3>Articles critiques</h3><div id="dashCriticalList" class="list"></div><p class="hint" id="dashCriticalHint"></p></div>
+<div class="card innerCard"><h3>Derniers mouvements</h3><div id="moves" class="moves"></div></div>
+</section>
 
-        <div>
-          <label>Mot de passe</label>
-          <div class="pwRow">
-            <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-            <button id="btnTogglePw" type="button" class="ghost pwBtn">Afficher</button>
-          </div>
-        </div>
-      </div>
+<section id="tabScan" class="tabPanel" hidden>
+<h2>Scan / Mouvement</h2>
+<div class="row"><button id="btnScan" type="button">Scanner</button><button id="btnStopScan" class="ghost" type="button" hidden>Arrêter</button></div>
+<div id="scannerWrap" class="scanner" hidden><video id="video" playsinline></video><div class="scanFrame"></div><div class="scanHint">Place le code-barres dans le cadre</div></div>
+<div class="grid2"><div><label>Code-barres</label><input id="barcode"/></div><div><label>Désignation (optionnel)</label><input id="name"/></div></div>
+<div class="grid2"><div><label>Quantité</label><input id="qtyDelta" type="number" min="1" value="1"/></div><div><label>Motif (optionnel)</label><input id="reason"/></div></div>
+<div class="row"><button id="btnAdd" type="button">+ Ajouter</button><button id="btnRemove" class="danger" type="button">- Retirer</button><button id="btnLoad" class="ghost" type="button">Recharger l’article</button></div>
+<div class="row"><span id="appStatus" class="status"></span></div><div id="itemBox" class="itemBox" hidden></div>
+</section>
 
-      <div class="row">
-        <button id="btnLogin" type="button">Se connecter</button>
-        <button id="btnSignup" class="ghost" type="button">Créer un compte</button>
-      </div>
+<section id="tabStock" class="tabPanel" hidden>
+<h2>Stock</h2>
+<div class="row">
+<input id="stockSearch" placeholder="Rechercher..."/>
+<select id="stockFilter"><option value="all">Tous</option><option value="crit">Critique</option><option value="low">Bas</option><option value="ok">OK</option></select>
+<button id="btnNewItem" class="ghost" type="button">+ Nouveau (admin)</button>
+<button id="btnPrintSelected" class="ghost" type="button">Imprimer étiquettes (sélection)</button>
+</div>
+<div class="stockLayout">
+<div class="stockList">
+<div class="stockTableWrap"><table class="stockTable"><thead><tr><th></th><th>État</th><th>Nom</th><th>Code</th><th class="num">Qté</th><th class="num">Bas</th><th class="num">Crit</th></tr></thead><tbody id="stockTableBody"></tbody></table></div>
+<div id="stockCards" class="stockCards"></div>
+<p class="hint" id="stockHint"></p>
+</div>
+<div class="stockEditor card innerCard"><h3>Fiche article</h3>
+<div class="grid2"><div><label>Code-barres</label><input id="edBarcode"/></div><div><label>Nom</label><input id="edName"/></div></div>
+<div class="grid2"><div><label>Unité</label><input id="edUnit"/></div><div><label>Emplacement</label><input id="edLocation"/></div></div>
+<div class="grid2"><div><label>Seuil bas</label><input id="edLow" type="number" value="5"/></div><div><label>Seuil critique</label><input id="edCritical" type="number" value="2"/></div></div>
+<div><label>Tags</label><input id="edTags"/></div>
+<div class="row"><button id="btnSuggestCode" class="ghost" type="button">Suggérer code</button><button id="btnSaveItem" type="button">Enregistrer</button><button id="btnDeleteItem" class="danger" type="button">Supprimer</button><button id="btnPrintOne" class="ghost" type="button">Imprimer étiquette (1)</button><span id="stockStatus" class="status"></span></div>
+</div>
+</div>
+</section>
 
-      <div class="row">
-        <button id="btnForgotPw" class="ghost" type="button">Mot de passe oublié</button>
-      </div>
+<section id="tabLabels" class="tabPanel" hidden>
+<h2>Étiquettes</h2>
+<div class="labelsLayout">
+<div class="card innerCard"><div class="row"><input id="labelsSearch" placeholder="Rechercher..."/></div>
+<div class="row"><button id="btnLabelsSelectAll" class="ghost" type="button">Tout cocher</button><button id="btnLabelsClear" class="ghost" type="button">Tout décocher</button><button id="btnLabelsPrint" class="ghost" type="button">Imprimer</button></div>
+<p class="hint" id="labelsHint"></p><div id="labelsList" class="labelsList"></div></div>
+<div class="card innerCard"><h3>Aperçu</h3>
+<div class="row"><label class="checkRow" style="margin:0"><input id="labelsPreviewBorder" type="checkbox"/>Contours</label><button id="btnLabelsPreview" class="ghost" type="button">Rafraîchir</button></div>
+<div class="itemBox"><div><b>Articles :</b> <span id="labelsSelCount">0</span></div><div><b>Total :</b> <span id="labelsTotalCount">0</span></div></div>
+<div class="previewWrap"><iframe id="labelsPreviewFrame"></iframe></div>
+</div>
+</div>
+</section>
 
-      <p class="hint">Après inscription, un administrateur doit valider ton compte.</p>
+<section id="tabSettings" class="tabPanel" hidden>
+<h2>Paramètres</h2>
+<div class="itemBox"><div><b>Rôle :</b> <span id="roleLabel">—</span></div></div>
+<section class="card innerCard"><h3>Mot de passe</h3>
+<div class="grid2"><div><label>Nouveau</label><input id="newPassword" type="password"/></div><div><label>Confirmer</label><input id="newPassword2" type="password"/></div></div>
+<div class="row"><button id="btnChangePw" class="ghost" type="button">Changer le mot de passe</button><span id="pwStatus" class="status"></span></div></section>
 
-      <div class="row">
-        <span id="status" class="status"></span>
-      </div>
-    </section>
+<section id="importPanel" class="card innerCard" hidden><h3>Import CSV (admin)</h3>
+<div class="row"><button id="btnDownloadCsvTemplate" class="ghost" type="button">Télécharger modèle CSV</button><input id="csvFile" type="file" accept=".csv"/></div>
+<div class="row"><label class="checkRow"><input id="chkImportMerge" type="checkbox" checked/>Fusionner</label></div>
+<div class="row"><button id="btnImportCsv" type="button">Importer</button><span id="importStatus" class="status"></span></div>
+</section>
 
-    <section id="viewPending" class="card" hidden>
-      <h2>Compte en attente</h2>
-      <p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
-      <div class="row">
-        <button id="btnLogout2" class="ghost" type="button">Déconnexion</button>
-        <span id="pendingInfo" class="status"></span>
-      </div>
-    </section>
+<section class="card innerCard"><h3>Étiquettes</h3>
+<div class="row"><select id="labelPreset"><option value="custom">Personnalisé</option><option value="averyL7160">Avery L7160</option><option value="averyL7163">Avery L7163</option><option value="averyL7651">Avery L7651</option><option value="generic3x8">Générique 3x8</option></select>
+<button id="btnSaveLabelSettings" class="ghost" type="button">Enregistrer</button><button id="btnResetLabelSettings" class="ghost" type="button">Réinitialiser</button><span id="labelStatus" class="status"></span></div>
+<div class="grid2"><div><label>Marges (mm)</label><input id="lblMarginMm" type="number" value="10"/></div><div><label>Colonnes</label><input id="lblCols" type="number" value="3"/></div></div>
+<div class="grid2"><div><label>Largeur (mm)</label><input id="lblWmm" type="number" value="63.5"/></div><div><label>Hauteur (mm)</label><input id="lblHmm" type="number" value="38.1"/></div></div>
+<div class="grid2"><div><label>Gap X (mm)</label><input id="lblGapXmm" type="number" value="2.5"/></div><div><label>Gap Y (mm)</label><input id="lblGapYmm" type="number" value="0"/></div></div>
+<div class="grid2"><div><label>Padding (mm)</label><input id="lblPadMm" type="number" value="2.5"/></div><div><label>Lignes nom</label><input id="lblNameLines" type="number" value="2"/></div></div>
+<div class="grid2"><div><label>Nom (pt)</label><input id="lblNamePt" type="number" value="10.5"/></div><div><label>Code (pt)</label><input id="lblCodePt" type="number" value="9"/></div></div>
+<div class="grid2"><div><label>Barres (mm)</label><input id="lblBarHmm" type="number" value="16"/></div><div><label>Épaisseur (px)</label><input id="lblBarWidthPx" type="number" value="2"/></div></div>
+<div class="row"><label class="checkRow" style="margin:0"><input id="lblShowLocation" type="checkbox" checked/>Afficher emplacement</label><label class="checkRow" style="margin:0"><input id="lblShowBorder" type="checkbox"/>Contours par défaut</label></div>
+</section>
 
-    <section id="viewApp" class="card" hidden>
-      <div class="tabs">
-        <button id="tabBtnDash" class="tab active" type="button">Dashboard</button>
-        <button id="tabBtnScan" class="tab" type="button">Scan</button>
-        <button id="tabBtnStock" class="tab" type="button">Stock</button>
-        <button id="tabBtnLabels" class="tab" type="button">Étiquettes</button>
-        <button id="tabBtnSettings" class="tab" type="button">Paramètres</button>
-      </div>
+<section id="adminPanel" class="card innerCard" hidden><h3>Admin</h3>
+<div class="row"><button id="btnRefreshPending" class="ghost" type="button">Recharger comptes</button><span id="adminStatus" class="status"></span></div>
+<div id="pendingList" class="list"></div>
+<hr class="sep"/><h4>Zone dangereuse</h4>
+<label class="checkRow"><input id="chkConfirmClear" type="checkbox"/>Je confirme</label>
+<div class="grid2"><div><label>Écris <b>VIDER</b></label><input id="txtConfirmClear" placeholder="VIDER"/></div><div><label>&nbsp;</label><button id="btnClearStock" class="danger" type="button">Vider le stock</button></div></div>
+</section>
+</section>
+</section>
 
-      <section id="tabDash" class="tabPanel">
-        <h2>Dashboard</h2>
-        <div class="kpis">
-          <div class="kpi crit">
-            <div class="kpiLabel">Critique</div>
-            <div class="kpiValue" id="kpiCrit">0</div>
-          </div>
-          <div class="kpi low">
-            <div class="kpiLabel">Bas</div>
-            <div class="kpiValue" id="kpiLow">0</div>
-          </div>
-          <div class="kpi ok">
-            <div class="kpiLabel">OK</div>
-            <div class="kpiValue" id="kpiOk">0</div>
-          </div>
-        </div>
-
-        <div class="row">
-          <input id="dashSearch" placeholder="Rechercher un article…" />
-        </div>
-
-        <div class="card innerCard">
-          <h3>Articles critiques</h3>
-          <div id="dashCriticalList" class="list"></div>
-          <p class="hint" id="dashCriticalHint"></p>
-        </div>
-
-        <div class="card innerCard">
-          <h3>Derniers mouvements</h3>
-          <div id="moves" class="moves"></div>
-        </div>
-      </section>
-
-      <section id="tabScan" class="tabPanel" hidden>
-        <h2>Scan / Mouvement</h2>
-
-        <div class="row">
-          <button id="btnScan" type="button">Scanner un code-barres</button>
-          <button id="btnStopScan" class="ghost" type="button" hidden>Arrêter</button>
-        </div>
-
-        <div id="scannerWrap" class="scanner" hidden>
-          <video id="video" playsinline></video>
-          <div class="scanFrame"></div>
-          <div class="scanHint">Place le code-barres dans le cadre</div>
-        </div>
-
-        <div class="grid2">
-          <div>
-            <label>Code-barres</label>
-            <input id="barcode" placeholder="Ex: DISJLGDX16 (ou EAN13)" />
-          </div>
-          <div>
-            <label>Désignation (optionnel)</label>
-            <input id="name" placeholder="Ex: Disjoncteur Legrand DX 16A" />
-          </div>
-        </div>
-
-        <div class="grid2">
-          <div>
-            <label>Quantité</label>
-            <input id="qtyDelta" type="number" min="1" step="1" value="1" />
-          </div>
-          <div>
-            <label>Motif (optionnel)</label>
-            <input id="reason" placeholder="TP / inventaire / commande..." />
-          </div>
-        </div>
-
-        <div class="row">
-          <button id="btnAdd" type="button">+ Ajouter</button>
-          <button id="btnRemove" class="danger" type="button">- Retirer</button>
-          <button id="btnLoad" class="ghost" type="button">Recharger l’article</button>
-        </div>
-
-        <div class="row">
-          <span id="appStatus" class="status"></span>
-        </div>
-
-        <div id="itemBox" class="itemBox" hidden></div>
-      </section>
-
-      <section id="tabStock" class="tabPanel" hidden>
-        <h2>Stock</h2>
-
-        <div class="row">
-          <input id="stockSearch" placeholder="Rechercher (nom, code, tags)..." />
-          <select id="stockFilter">
-            <option value="all">Tous</option>
-            <option value="crit">Critique</option>
-            <option value="low">Bas</option>
-            <option value="ok">OK</option>
-          </select>
-          <button id="btnNewItem" class="ghost" type="button">+ Nouveau (admin)</button>
-          <button id="btnPrintSelected" class="ghost" type="button">Imprimer étiquettes (sélection)</button>
-        </div>
-
-        <p class="hint" id="stockHint"></p>
-        <div class="stockTableWrap">
-          <table class="stockTable">
-            <thead>
-              <tr>
-                <th></th>
-                <th>État</th>
-                <th>Nom</th>
-                <th>Code</th>
-                <th class="num">Qté</th>
-                <th class="num">Bas</th>
-                <th class="num">Crit</th>
-              </tr>
-            </thead>
-            <tbody id="stockTableBody"></tbody>
-          </table>
-        </div>
-
-        <div class="stockCards" id="stockCards"></div>
-      </section>
-
-      <section id="tabLabels" class="tabPanel" hidden>
-        <h2>Étiquettes</h2>
-
-        <div class="labelsLayout">
-          <div class="card innerCard">
-            <div class="row">
-              <input id="labelsSearch" placeholder="Rechercher (nom / code)..." />
-            </div>
-
-            <div class="row">
-              <button id="btnLabelsSelectAll" class="ghost" type="button">Tout cocher</button>
-              <button id="btnLabelsClear" class="ghost" type="button">Tout décocher</button>
-              <button id="btnLabelsPrint" class="ghost" type="button">Imprimer</button>
-            </div>
-
-            <p class="hint" id="labelsHint"></p>
-            <div id="labelsList" class="labelsList"></div>
-          </div>
-
-          <div class="card innerCard">
-            <h3>Aperçu planche</h3>
-
-            <div class="row">
-              <label class="checkRow" style="margin:0">
-                <input type="checkbox" id="labelsPreviewBorder" />
-                Contours (test)
-              </label>
-              <button id="btnLabelsPreview" class="ghost" type="button">Rafraîchir aperçu</button>
-            </div>
-
-            <div class="itemBox">
-              <div><b>Articles sélectionnés :</b> <span id="labelsSelCount">0</span></div>
-              <div><b>Total étiquettes :</b> <span id="labelsTotalCount">0</span></div>
-            </div>
-
-            <div class="previewWrap">
-              <iframe id="labelsPreviewFrame" title="Aperçu étiquettes"></iframe>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="tabSettings" class="tabPanel" hidden>
-        <h2>Paramètres</h2>
-
-        <div class="itemBox">
-          <div><b>Rôle :</b> <span id="roleLabel">—</span></div>
-        </div>
-
-        <section id="pwPanel" class="card innerCard">
-          <h3>Mot de passe</h3>
-          <p class="hint">Changer ton mot de passe (si tu es connecté).</p>
-
-          <div class="grid2">
-            <div>
-              <label>Nouveau mot de passe</label>
-              <input id="newPassword" type="password" placeholder="6 caractères minimum" />
-            </div>
-            <div>
-              <label>Confirmer</label>
-              <input id="newPassword2" type="password" placeholder="Répéter" />
-            </div>
-          </div>
-
-          <div class="row">
-            <button id="btnChangePw" class="ghost" type="button">Changer le mot de passe</button>
-            <span id="pwStatus" class="status"></span>
-          </div>
-        </section>
-
-        <section id="labelsPanel" class="card innerCard">
-          <h3>Étiquettes (A4 prédécoupées)</h3>
-
-          <div class="row">
-            <select id="labelPreset">
-              <option value="custom">Personnalisé</option>
-              <option value="averyL7160">Avery L7160 (63.5 x 38.1 mm, 3x7)</option>
-              <option value="averyL7163">Avery L7163 (99.1 x 38.1 mm, 2x7)</option>
-              <option value="averyL7651">Avery L7651 (63.5 x 33.9 mm, 3x8)</option>
-              <option value="generic3x8">Générique 3x8 (70 x 35 mm)</option>
-            </select>
-            <button id="btnSaveLabelSettings" class="ghost" type="button">Enregistrer réglages</button>
-            <button id="btnResetLabelSettings" class="ghost" type="button">Réinitialiser</button>
-            <span id="labelStatus" class="status"></span>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Marges page (mm)</label>
-              <input id="lblMarginMm" type="number" step="0.1" min="0" value="10" />
-            </div>
-            <div>
-              <label>Colonnes</label>
-              <input id="lblCols" type="number" step="1" min="1" value="3" />
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Largeur étiquette (mm)</label>
-              <input id="lblWmm" type="number" step="0.1" min="10" value="63.5" />
-            </div>
-            <div>
-              <label>Hauteur étiquette (mm)</label>
-              <input id="lblHmm" type="number" step="0.1" min="10" value="38.1" />
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Espacement horizontal (mm)</label>
-              <input id="lblGapXmm" type="number" step="0.1" min="0" value="2.5" />
-            </div>
-            <div>
-              <label>Espacement vertical (mm)</label>
-              <input id="lblGapYmm" type="number" step="0.1" min="0" value="0" />
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Padding interne (mm)</label>
-              <input id="lblPadMm" type="number" step="0.1" min="0" value="2.5" />
-            </div>
-            <div>
-              <label>Max lignes nom</label>
-              <input id="lblNameLines" type="number" step="1" min="1" value="2" />
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Taille texte nom (pt)</label>
-              <input id="lblNamePt" type="number" step="0.5" min="6" value="10.5" />
-            </div>
-            <div>
-              <label>Taille texte code (pt)</label>
-              <input id="lblCodePt" type="number" step="0.5" min="6" value="9" />
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label>Hauteur code-barres (mm)</label>
-              <input id="lblBarHmm" type="number" step="0.5" min="10" value="16" />
-            </div>
-            <div>
-              <label>Épaisseur barres (px)</label>
-              <input id="lblBarWidthPx" type="number" step="1" min="1" value="2" />
-            </div>
-          </div>
-
-          <div class="row">
-            <label class="checkRow" style="margin:0">
-              <input type="checkbox" id="lblShowLocation" checked />
-              Afficher emplacement
-            </label>
-            <label class="checkRow" style="margin:0">
-              <input type="checkbox" id="lblShowBorder" />
-              Afficher contour (test)
-            </label>
-          </div>
-
-          <p class="hint">L’aperçu se met à jour automatiquement quand tu modifies les réglages.</p>
-        </section>
-      </section>
-    </section>
-  </main>
-
-  <footer>
-    <small>Gstock V2 — modular JS</small>
-  </footer>
-
-  <script type="module" src="./app.js"></script>
-</body>
-</html>
+</main>
+<footer><small>Gstock — Firebase</small></footer>
+<script type="module" src="./app.js"></script>
+</body></html>

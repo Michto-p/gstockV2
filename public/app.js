@@ -1,6 +1,11 @@
 import "./js/core.js";
-import "./js/auth.js";
 import "./js/tabs.js";
+import "./js/auth.js";
+import "./js/items.js";
 import "./js/moves.js";
 import "./js/dashboard.js";
+import "./js/scan.js";
+import "./js/stock.js";
 import "./js/labels.js";
+import "./js/import.js";
+import "./js/admin.js";
