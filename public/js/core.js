@@ -1,3 +1,7 @@
+
+
+
+
 // public/js/core.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
@@ -325,3 +329,56 @@ onAuthStateChanged(auth, async (u) => {
     emit("auth:error", { error: e });
   }
 });
+
+import {
+  collection, getDocs, query, limit,
+  doc, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+import { db, auth, OWNER_UID } from "./core.js"; // adapte si nécessaire
+
+export async function bootstrapRolesIfNeeded() {
+  const u = auth.currentUser;
+  if (!u) return { ok: false, reason: "not_signed_in" };
+  if (!OWNER_UID || u.uid !== OWNER_UID) return { ok: false, reason: "not_owner" };
+
+  // Si au moins 1 rôle existe, on considère que c’est déjà initialisé
+  const rolesSnap = await getDocs(query(collection(db, "roles"), limit(1)));
+  if (!rolesSnap.empty) return { ok: true, created: 0, reason: "already_initialized" };
+
+  const baseRoles = [
+    {
+      id: "admin",
+      name: "Admin",
+      perms: { admin:true, read:true, move:true, items:true, suppliers:true, users:true, roles:true, orders:true }
+    },
+    {
+      id: "stock",
+      name: "Stock",
+      perms: { read:true, move:true, items:false, suppliers:false, users:false, roles:false, orders:true }
+    },
+    {
+      id: "visu",
+      name: "Visu",
+      perms: { read:true, move:false, items:false, suppliers:false, users:false, roles:false, orders:false }
+    },
+    {
+      id: "pending",
+      name: "En attente",
+      perms: { read:false, move:false, items:false, suppliers:false, users:false, roles:false, orders:false }
+    }
+  ];
+
+  for (const r of baseRoles) {
+    await setDoc(doc(db, "roles", r.id), {
+      id: r.id,
+      name: r.name,
+      perms: r.perms,
+      system: true,
+      updatedAt: serverTimestamp(),
+      updatedBy: u.uid,
+    }, { merge: true });
+  }
+
+  return { ok: true, created: baseRoles.length, reason: "initialized" };
+}
