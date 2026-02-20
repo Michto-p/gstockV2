@@ -67,7 +67,29 @@ export function escapeHtml(s) {
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
+// Normalise les seuils/quantités d’un item (évite NaN, valeurs négatives, etc.)
+export function normalizeThresholds(item) {
+  if (!item || typeof item !== "object") return item;
 
+  const out = { ...item };
+
+  // Champs fréquents (adapté à ton modèle)
+  if ("qty" in out) out.qty = Math.max(0, toInt(out.qty, 0));
+  if ("threshold" in out) out.threshold = Math.max(0, toInt(out.threshold, 0));
+  if ("min" in out) out.min = Math.max(0, toInt(out.min, 0));
+  if ("max" in out) out.max = Math.max(0, toInt(out.max, 0));
+
+  // Certains projets utilisent des seuils par emplacement
+  if (out.thresholds && typeof out.thresholds === "object") {
+    const t = { ...out.thresholds };
+    for (const k of Object.keys(t)) {
+      t[k] = Math.max(0, toInt(t[k], 0));
+    }
+    out.thresholds = t;
+  }
+
+  return out;
+}
 export function showView(which) {
   if (viewLogin) viewLogin.hidden = which !== "login";
   if (viewPending) viewPending.hidden = which !== "pending";
