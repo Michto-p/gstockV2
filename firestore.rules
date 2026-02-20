@@ -27,7 +27,7 @@ service cloud.firestore {
     }
 
     function isOwner() {
-      return signedIn() && request.auth.uid == "OWNER_UID_HERE";
+      return signedIn() && request.auth.uid == "pxEjO8xAUxQcrwEILjwxi9OlFp82";
     }
 
     function isAdmin() {
