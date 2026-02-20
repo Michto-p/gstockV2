@@ -1,23 +1,34 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Gstock</title><link rel="stylesheet" href="./style.css"/><link rel="icon" href="/favicon.png"></head><body>
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Gstock</title><link rel="stylesheet" href="./style.css"/><link rel="icon" href="/favicon.png"></head>
+<body>
 <header><h1>Gstock</h1><div class="sub"><span id="authState">Non connecté</span><button id="btnLogout" class="ghost" hidden>Déconnexion</button></div></header>
 <main>
-<section id="viewLogin" class="card"><h2>Connexion</h2>
-<div class="grid2"><div><label>Email</label><input id="email" type="email"/></div>
-<div><label>Mot de passe</label><div class="pwRow"><input id="password" type="password"/><button id="btnTogglePw" class="ghost pwBtn" type="button">Afficher</button></div></div></div>
+<section id="viewLogin" class="card">
+<h2>Connexion</h2>
+<div class="grid2">
+<div><label>Email</label><input id="email" type="email" autocomplete="username"/></div>
+<div><label>Mot de passe</label><div class="pwRow"><input id="password" type="password" autocomplete="current-password"/><button id="btnTogglePw" class="ghost pwBtn" type="button">Afficher</button></div></div>
+</div>
 <div class="row"><button id="btnLogin" type="button">Se connecter</button><button id="btnSignup" class="ghost" type="button">Créer un compte</button></div>
 <div class="row"><button id="btnForgotPw" class="ghost" type="button">Mot de passe oublié</button></div>
 <p class="hint">Après inscription, un administrateur doit valider ton compte.</p>
-<div class="row"><span id="status" class="status"></span></div></section>
-<section id="viewPending" class="card" hidden><h2>Compte en attente</h2><p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
-<div class="row"><button id="btnLogout2" class="ghost" type="button">Déconnexion</button><span id="pendingInfo" class="status"></span></div></section>
+<div class="row"><span id="status" class="status"></span></div>
+</section>
+
+<section id="viewPending" class="card" hidden>
+<h2>Compte en attente</h2><p>Ton compte est créé, mais il doit être validé par un administrateur.</p>
+<div class="row"><button id="btnLogout2" class="ghost" type="button">Déconnexion</button><span id="pendingInfo" class="status"></span></div>
+</section>
 
 <section id="viewApp" class="card" hidden>
-<div class="tabs">
-<button id="tabBtnDash" class="tab active" type="button">Dashboard</button>
-<button id="tabBtnScan" class="tab" type="button">Scan</button>
-<button id="tabBtnStock" class="tab" type="button">Stock</button>
-<button id="tabBtnLabels" class="tab" type="button">Étiquettes</button>
-<button id="tabBtnSettings" class="tab" type="button">Paramètres</button>
+<div class="tabs" id="tabsBar">
+<button id="tabBtnDash" class="tab active" type="button" data-tab="dash">Dashboard</button>
+<button id="tabBtnScan" class="tab" type="button" data-tab="scan">Scan</button>
+<button id="tabBtnStock" class="tab" type="button" data-tab="stock">Stock</button>
+<button id="tabBtnOrders" class="tab" type="button" data-tab="orders">Commandes</button>
+<button id="tabBtnSuppliers" class="tab" type="button" data-tab="suppliers">Fournisseurs</button>
+<button id="tabBtnSettings" class="tab" type="button" data-tab="settings">Paramètres</button>
 </div>
 
 <section id="tabDash" class="tabPanel">
@@ -27,8 +38,9 @@
 <div class="kpi low"><div class="kpiLabel">Bas</div><div class="kpiValue" id="kpiLow">0</div></div>
 <div class="kpi ok"><div class="kpiLabel">OK</div><div class="kpiValue" id="kpiOk">0</div></div>
 </div>
-<div class="row"><input id="dashSearch" placeholder="Rechercher un article…"/><button id="btnDashGoStock" class="ghost" type="button">Ouvrir Stock</button></div>
-<div class="card innerCard"><h3>Articles critiques</h3><div id="dashCriticalList" class="list"></div><p class="hint" id="dashCriticalHint"></p></div>
+<div class="kpis" style="margin-top:10px"><div class="kpi"><div class="kpiLabel">Seuil bas = 0</div><div class="kpiValue" id="kpiLowZero">0</div></div></div>
+<div class="row"><input id="dashSearch" placeholder="Rechercher un article…"/><button id="btnDashGoStock" class="ghost" type="button">Ouvrir Stock</button><button id="btnDashGoOrders" class="ghost" type="button">Ouvrir Commandes</button></div>
+<div class="card innerCard"><h3>À commander (bas)</h3><div id="dashReorderList" class="list"></div><p class="hint" id="dashReorderHint"></p></div>
 <div class="card innerCard"><h3>Derniers mouvements</h3><div id="moves" class="moves"></div></div>
 </section>
 
@@ -39,82 +51,95 @@
 <div class="grid2"><div><label>Code-barres</label><input id="barcode"/></div><div><label>Désignation (optionnel)</label><input id="name"/></div></div>
 <div class="grid2"><div><label>Quantité</label><input id="qtyDelta" type="number" min="1" value="1"/></div><div><label>Motif (optionnel)</label><input id="reason"/></div></div>
 <div class="row"><button id="btnAdd" type="button">+ Ajouter</button><button id="btnRemove" class="danger" type="button">- Retirer</button><button id="btnLoad" class="ghost" type="button">Recharger l’article</button></div>
-<div class="row"><span id="appStatus" class="status"></span></div><div id="itemBox" class="itemBox" hidden></div>
+<div class="row"><span id="appStatus" class="status"></span></div>
+<div id="itemBox" class="itemBox" hidden></div>
 </section>
 
 <section id="tabStock" class="tabPanel" hidden>
 <h2>Stock</h2>
-<div class="row">
-<input id="stockSearch" placeholder="Rechercher..."/>
+<div class="row"><input id="stockSearch" placeholder="Rechercher..."/>
 <select id="stockFilter"><option value="all">Tous</option><option value="crit">Critique</option><option value="low">Bas</option><option value="ok">OK</option></select>
-<button id="btnNewItem" class="ghost" type="button">+ Nouveau (admin)</button>
-<button id="btnPrintSelected" class="ghost" type="button">Imprimer étiquettes (sélection)</button>
-</div>
+<button id="btnNewItem" class="ghost" type="button">+ Créer article</button>
+<button id="btnPrintSelected" class="ghost" type="button">Imprimer étiquettes</button></div>
+
 <div class="stockLayout">
 <div class="stockList">
-<div class="stockTableWrap"><table class="stockTable"><thead><tr><th></th><th>État</th><th>Nom</th><th>Code</th><th class="num">Qté</th><th class="num">Bas</th><th class="num">Crit</th></tr></thead><tbody id="stockTableBody"></tbody></table></div>
-<div id="stockCards" class="stockCards"></div>
-<p class="hint" id="stockHint"></p>
+<div class="stockTableWrap"><table class="stockTable"><thead><tr><th></th><th>État</th><th>Nom</th><th>Code</th><th class="num">Qté</th><th class="num">Bas</th><th class="num">Crit</th><th>Fourn.</th></tr></thead><tbody id="stockTableBody"></tbody></table></div>
+<div id="stockCards" class="stockCards"></div><p class="hint" id="stockHint"></p>
 </div>
-<div class="stockEditor card innerCard"><h3>Fiche article</h3>
+
+<div class="stockEditor card innerCard">
+<h3 id="editorTitle">Fiche article</h3>
 <div class="grid2"><div><label>Code-barres</label><input id="edBarcode"/></div><div><label>Nom</label><input id="edName"/></div></div>
 <div class="grid2"><div><label>Unité</label><input id="edUnit"/></div><div><label>Emplacement</label><input id="edLocation"/></div></div>
 <div class="grid2"><div><label>Seuil bas</label><input id="edLow" type="number" value="5"/></div><div><label>Seuil critique</label><input id="edCritical" type="number" value="2"/></div></div>
+<div><label>Fournisseurs (multi)</label><div id="edSuppliers" class="pillBox"></div></div>
 <div><label>Tags</label><input id="edTags"/></div>
 <div class="row"><button id="btnSuggestCode" class="ghost" type="button">Suggérer code</button><button id="btnSaveItem" type="button">Enregistrer</button><button id="btnDeleteItem" class="danger" type="button">Supprimer</button><button id="btnPrintOne" class="ghost" type="button">Imprimer étiquette (1)</button><span id="stockStatus" class="status"></span></div>
 </div>
 </div>
 </section>
 
-<section id="tabLabels" class="tabPanel" hidden>
-<h2>Étiquettes</h2>
-<div class="labelsLayout">
-<div class="card innerCard"><div class="row"><input id="labelsSearch" placeholder="Rechercher..."/></div>
-<div class="row"><button id="btnLabelsSelectAll" class="ghost" type="button">Tout cocher</button><button id="btnLabelsClear" class="ghost" type="button">Tout décocher</button><button id="btnLabelsPrint" class="ghost" type="button">Imprimer</button></div>
-<p class="hint" id="labelsHint"></p><div id="labelsList" class="labelsList"></div></div>
-<div class="card innerCard"><h3>Aperçu</h3>
-<div class="row"><label class="checkRow" style="margin:0"><input id="labelsPreviewBorder" type="checkbox"/>Contours</label><button id="btnLabelsPreview" class="ghost" type="button">Rafraîchir</button></div>
-<div class="itemBox"><div><b>Articles :</b> <span id="labelsSelCount">0</span></div><div><b>Total :</b> <span id="labelsTotalCount">0</span></div></div>
-<div class="previewWrap"><iframe id="labelsPreviewFrame"></iframe></div>
-</div>
-</div>
+<section id="tabOrders" class="tabPanel" hidden>
+<h2>Commandes</h2>
+<div class="row"><button id="btnOrdersRefresh" class="ghost" type="button">Rafraîchir</button><button id="btnOrdersExport" class="ghost" type="button">Exporter CSV</button></div>
+<div id="ordersWrap" class="ordersWrap"></div><p id="ordersHint" class="hint"></p>
 </section>
+
+<section id="tabSuppliers" class="tabPanel" hidden>
+<h2>Fournisseurs</h2>
+<div class="row"><input id="supSearch" placeholder="Rechercher fournisseur..."/><button id="btnNewSupplier" class="ghost" type="button">+ Nouveau</button></div>
+<div class="stockLayout">
+<div class="stockList"><div id="supList" class="list"></div><p id="supHint" class="hint"></p></div>
+<div class="card innerCard">
+<h3 id="supEditorTitle">Fiche fournisseur</h3>
+<div class="grid2"><div><label>Nom</label><input id="supName"/></div><div><label>Téléphone</label><input id="supPhone"/></div></div>
+<div class="grid2"><div><label>Email</label><input id="supEmail"/></div><div><label>Site</label><input id="supWebsite"/></div></div>
+<div><label>Adresse</label><input id="supAddress"/></div>
+<div><label>Notes</label><input id="supNotes"/></div>
+<div class="row"><button id="btnSaveSupplier" type="button">Enregistrer</button><button id="btnDeleteSupplier" class="danger" type="button">Supprimer</button><span id="supStatus" class="status"></span></div>
+</div></div></section>
 
 <section id="tabSettings" class="tabPanel" hidden>
 <h2>Paramètres</h2>
-<div class="itemBox"><div><b>Rôle :</b> <span id="roleLabel">—</span></div></div>
+<div class="itemBox"><div><b>Rôle :</b> <span id="roleLabel">—</span></div><div><b>RoleId :</b> <span id="roleIdLabel">—</span></div></div>
+
 <section class="card innerCard"><h3>Mot de passe</h3>
 <div class="grid2"><div><label>Nouveau</label><input id="newPassword" type="password"/></div><div><label>Confirmer</label><input id="newPassword2" type="password"/></div></div>
 <div class="row"><button id="btnChangePw" class="ghost" type="button">Changer le mot de passe</button><span id="pwStatus" class="status"></span></div></section>
 
-<section id="importPanel" class="card innerCard" hidden><h3>Import CSV (admin)</h3>
+<section id="importPanel" class="card innerCard" hidden><h3>Import CSV</h3>
 <div class="row"><button id="btnDownloadCsvTemplate" class="ghost" type="button">Télécharger modèle CSV</button><input id="csvFile" type="file" accept=".csv"/></div>
 <div class="row"><label class="checkRow"><input id="chkImportMerge" type="checkbox" checked/>Fusionner</label></div>
 <div class="row"><button id="btnImportCsv" type="button">Importer</button><span id="importStatus" class="status"></span></div>
 </section>
 
-<section class="card innerCard"><h3>Étiquettes</h3>
-<div class="row"><select id="labelPreset"><option value="custom">Personnalisé</option><option value="averyL7160">Avery L7160</option><option value="averyL7163">Avery L7163</option><option value="averyL7651">Avery L7651</option><option value="generic3x8">Générique 3x8</option></select>
-<button id="btnSaveLabelSettings" class="ghost" type="button">Enregistrer</button><button id="btnResetLabelSettings" class="ghost" type="button">Réinitialiser</button><span id="labelStatus" class="status"></span></div>
-<div class="grid2"><div><label>Marges (mm)</label><input id="lblMarginMm" type="number" value="10"/></div><div><label>Colonnes</label><input id="lblCols" type="number" value="3"/></div></div>
-<div class="grid2"><div><label>Largeur (mm)</label><input id="lblWmm" type="number" value="63.5"/></div><div><label>Hauteur (mm)</label><input id="lblHmm" type="number" value="38.1"/></div></div>
-<div class="grid2"><div><label>Gap X (mm)</label><input id="lblGapXmm" type="number" value="2.5"/></div><div><label>Gap Y (mm)</label><input id="lblGapYmm" type="number" value="0"/></div></div>
-<div class="grid2"><div><label>Padding (mm)</label><input id="lblPadMm" type="number" value="2.5"/></div><div><label>Lignes nom</label><input id="lblNameLines" type="number" value="2"/></div></div>
-<div class="grid2"><div><label>Nom (pt)</label><input id="lblNamePt" type="number" value="10.5"/></div><div><label>Code (pt)</label><input id="lblCodePt" type="number" value="9"/></div></div>
-<div class="grid2"><div><label>Barres (mm)</label><input id="lblBarHmm" type="number" value="16"/></div><div><label>Épaisseur (px)</label><input id="lblBarWidthPx" type="number" value="2"/></div></div>
-<div class="row"><label class="checkRow" style="margin:0"><input id="lblShowLocation" type="checkbox" checked/>Afficher emplacement</label><label class="checkRow" style="margin:0"><input id="lblShowBorder" type="checkbox"/>Contours par défaut</label></div>
+<section id="rolesPanel" class="card innerCard" hidden><h3>Rôles & droits</h3>
+<div class="row"><input id="roleSearch" placeholder="Rechercher rôle..."/><button id="btnNewRole" class="ghost" type="button">+ Nouveau rôle</button></div>
+<div class="stockLayout">
+<div class="stockList"><div id="rolesList" class="list"></div><p id="rolesHint" class="hint"></p></div>
+<div class="card innerCard">
+<h3 id="roleEditorTitle">Fiche rôle</h3>
+<div class="grid2"><div><label>RoleId</label><input id="roleId"/></div><div><label>Nom affiché</label><input id="roleName"/></div></div>
+<div class="row"><label class="checkRow"><input id="permRead" type="checkbox"/>Lire</label><label class="checkRow"><input id="permMove" type="checkbox"/>Entrées/sorties</label><label class="checkRow"><input id="permItems" type="checkbox"/>Gérer articles</label></div>
+<div class="row"><label class="checkRow"><input id="permSuppliers" type="checkbox"/>Gérer fournisseurs</label><label class="checkRow"><input id="permUsers" type="checkbox"/>Gérer utilisateurs</label><label class="checkRow"><input id="permRoles" type="checkbox"/>Gérer rôles</label></div>
+<div class="row"><button id="btnSaveRole" type="button">Enregistrer rôle</button><button id="btnDeleteRole" class="danger" type="button">Supprimer rôle</button><span id="roleStatus" class="status"></span></div>
+</div></div></section>
+
+<section id="usersPanel" class="card innerCard" hidden><h3>Utilisateurs</h3>
+<div class="row"><button id="btnUsersRefresh" class="ghost" type="button">Rafraîchir</button><input id="usersSearch" placeholder="Rechercher (email/uid)..."/><span id="usersStatus" class="status"></span></div>
+<div id="usersList" class="list"></div>
 </section>
 
 <section id="adminPanel" class="card innerCard" hidden><h3>Admin</h3>
-<div class="row"><button id="btnRefreshPending" class="ghost" type="button">Recharger comptes</button><span id="adminStatus" class="status"></span></div>
+<div class="row"><button id="btnRefreshPending" class="ghost" type="button">Recharger comptes en attente</button><span id="adminStatus" class="status"></span></div>
 <div id="pendingList" class="list"></div>
 <hr class="sep"/><h4>Zone dangereuse</h4>
-<label class="checkRow"><input id="chkConfirmClear" type="checkbox"/>Je confirme</label>
+<label class="checkRow"><input id="chkConfirmClear" type="checkbox"/>Je confirme vouloir vider le stock</label>
 <div class="grid2"><div><label>Écris <b>VIDER</b></label><input id="txtConfirmClear" placeholder="VIDER"/></div><div><label>&nbsp;</label><button id="btnClearStock" class="danger" type="button">Vider le stock</button></div></div>
 </section>
-</section>
-</section>
 
+</section></section>
 </main>
 <footer><small>Gstock — Firebase</small></footer>
 <script type="module" src="./app.js"></script>
