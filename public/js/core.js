@@ -62,6 +62,7 @@ export function emit(name, detail) {
 // -------------------- Global state --------------------
 export let userProfile = null;      // doc users/{uid}
 export let myRoleDoc = null;        // doc roles/{roleId}
+export let rolesCache = [];
 export let itemsCache = [];
 export let suppliersCache = [];
 
@@ -266,6 +267,7 @@ onAuthStateChanged(auth, async (u) => {
   // reset state
   userProfile = null;
   myRoleDoc = null;
+  rolesCache = [];
   itemsCache = [];
   suppliersCache = [];
 
