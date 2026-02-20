@@ -1,70 +1,34 @@
-import { on, $, toInt, safeTrim } from "./core.js";
-
-const kpiCrit = $("kpiCrit");
-const kpiLow = $("kpiLow");
-const kpiOk = $("kpiOk");
-const dashSearch = $("dashSearch");
-const dashCriticalList = $("dashCriticalList");
-const dashCriticalHint = $("dashCriticalHint");
-
-let cache = [];
-
-function thresholds(it){
-  const low = toInt(it?.thresholds?.low, 5);
-  const crit = toInt(it?.thresholds?.critical, 2);
-  return { low: Math.max(0, low), crit: Math.max(0, crit) };
-}
-function statusOf(it){
-  const qty = toInt(it?.qty, 0);
-  const { low, crit } = thresholds(it);
-  if(qty <= crit) return "crit";
-  if(qty <= low) return "low";
-  return "ok";
-}
-function badge(st){
-  if(st==="crit") return `<span class="badge crit">CRIT</span>`;
-  if(st==="low") return `<span class="badge low">BAS</span>`;
-  return `<span class="badge ok">OK</span>`;
-}
-
+import { AppEvents, itemsCache, itemStatus, normalizeThresholds, badgeHTML, toInt, safeTrim, escapeHtml, setActiveTab } from "./core.js";
+const kpiCrit=document.getElementById("kpiCrit"), kpiLow=document.getElementById("kpiLow"), kpiOk=document.getElementById("kpiOk");
+const dashSearch=document.getElementById("dashSearch");
+const dashCriticalList=document.getElementById("dashCriticalList");
+const dashCriticalHint=document.getElementById("dashCriticalHint");
+document.getElementById("btnDashGoStock")?.addEventListener("click", ()=>setActiveTab("stock"));
 function render(){
-  if(!kpiCrit || !kpiLow || !kpiOk) return;
-  const q = safeTrim(dashSearch?.value).toLowerCase();
-  const filtered = cache.filter(it=>{
-    const hay = `${it.name||""} ${it.barcode||it.id||""} ${(it.tags||[]).join(" ")}`.toLowerCase();
+  const q=safeTrim(dashSearch?.value).toLowerCase();
+  const filtered=(itemsCache||[]).filter(it=>{
+    const hay=`${it.name||""} ${it.barcode||it.id||""} ${(it.tags||[]).join(" ")}`.toLowerCase();
     return !q || hay.includes(q);
   });
-
-  let cC=0,cL=0,cO=0;
-  const critItems=[];
-  for(const it of filtered){
-    const st = statusOf(it);
-    if(st==="crit"){ cC++; critItems.push(it); }
-    else if(st==="low") cL++;
-    else cO++;
-  }
-  kpiCrit.textContent = String(cC);
-  kpiLow.textContent = String(cL);
-  kpiOk.textContent = String(cO);
-
-  if(!dashCriticalList || !dashCriticalHint) return;
-  dashCriticalList.innerHTML = "";
-  if(critItems.length===0){
-    dashCriticalHint.textContent = "Aucun article en critique 🎉";
-    return;
-  }
-  dashCriticalHint.textContent = `${critItems.length} article(s) en critique.`;
-  critItems.sort((a,b)=>toInt(a.qty,0)-toInt(b.qty,0)).slice(0,12).forEach(it=>{
-    const st = statusOf(it);
-    const { low, crit } = thresholds(it);
+  let cCrit=0,cLow=0,cOk=0; const crit=[];
+  for(const it of filtered){ const st=itemStatus(it); if(st==="crit"){cCrit++; crit.push(it);} else if(st==="low") cLow++; else cOk++; }
+  kpiCrit&&(kpiCrit.textContent=String(cCrit)); kpiLow&&(kpiLow.textContent=String(cLow)); kpiOk&&(kpiOk.textContent=String(cOk));
+  if(!dashCriticalList) return;
+  dashCriticalList.innerHTML="";
+  if(crit.length===0){ dashCriticalHint&&(dashCriticalHint.textContent="Aucun article en critique 🎉"); return; }
+  dashCriticalHint&&(dashCriticalHint.textContent=`${crit.length} article(s) en critique.`);
+  crit.sort((a,b)=>toInt(a.qty,0)-toInt(b.qty,0)).slice(0,12).forEach(it=>{
+    const st=itemStatus(it); const {low,critical}=normalizeThresholds(it);
     const row=document.createElement("div");
-    row.className="move";
-    row.innerHTML=`
-      <div class="top"><div class="code">${it.name||"(sans nom)"}</div>${badge(st)}</div>
-      <div class="meta">Code: ${it.barcode||it.id} — Qty: ${toInt(it.qty,0)} — Bas:${low} — Crit:${crit}</div>
-    `;
+    row.className="userRow";
+    row.innerHTML=`<div class="top"><div class="email">${escapeHtml(it.name||"(sans nom)")}</div>${badgeHTML(st)}</div>
+      <div class="meta">Code: ${escapeHtml(it.barcode||it.id)} — Qty: <b>${toInt(it.qty,0)}</b> — Bas: ${low} — Crit: ${critical}</div>
+      <div class="actions"><button class="ghost" type="button">Ouvrir Stock</button></div>`;
+    row.querySelector("button").addEventListener("click", ()=>{ window.__GstockSelectItem?.(it.id); setActiveTab("stock"); });
     dashCriticalList.appendChild(row);
   });
 }
 dashSearch?.addEventListener("input", render);
-on("items:updated", (items)=>{ cache = items || []; render(); });
+window.__GstockRefreshDash=render;
+AppEvents.addEventListener("auth:signedIn", render);
+AppEvents.addEventListener("auth:signedOut", ()=>{ dashCriticalList&&(dashCriticalList.innerHTML=""); dashCriticalHint&&(dashCriticalHint.textContent=""); });
