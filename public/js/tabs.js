@@ -1,11 +1,8 @@
+// public/js/tabs.js
 import {
-  tabsBar,
-  AppEvents,
-  canRead, canMove,
-  canManageSuppliers,
-  canManageUsers,
-  canManageRoles,
-  canManageItems
+  tabsBar, AppEvents,
+  canRead, canMove, canManageSuppliers,
+  canManageUsers, canManageRoles, canManageItems, isAdmin
 } from "./core.js";
 
 const panels = {
@@ -27,24 +24,36 @@ function setTabVisible(tab, visible) {
   if (btn) btn.hidden = !visible;
 }
 
-function applyVisibility() {
-  // ✅ si aucun droit n’est chargé, on ne cache pas tout brutalement :
-  // on garde au moins dashboard visible si read=true, sinon on masque tout et l’app montrera “pending/roleMissing”.
-  const read = canRead();
+function applySettingsPanels() {
+  // Sous-panneaux paramètres
+  const importPanel = document.getElementById("importPanel");
+  const rolesPanel = document.getElementById("rolesPanel");
+  const usersPanel = document.getElementById("usersPanel");
+  const adminPanel = document.getElementById("adminPanel");
 
+  if (importPanel) importPanel.hidden = !(isAdmin() || canManageItems());
+  if (rolesPanel) rolesPanel.hidden = !(isAdmin() || canManageRoles());
+  if (usersPanel) usersPanel.hidden = !(isAdmin() || canManageUsers());
+  if (adminPanel) adminPanel.hidden = !isAdmin();
+}
+
+function applyVisibility() {
+  const read = canRead();
   setTabVisible("dash", read);
   setTabVisible("scan", canMove());
   setTabVisible("stock", read);
-  setTabVisible("orders", read); // ou canMove() si tu veux réserver la commande au stock
-  setTabVisible("suppliers", canManageSuppliers());
-  setTabVisible("settings", canManageItems() || canManageSuppliers() || canManageUsers() || canManageRoles());
+  setTabVisible("orders", read);
+  setTabVisible("suppliers", read && canManageSuppliers());
+  setTabVisible("settings", read); // Paramètres visible si connecté validé (les sous-panneaux filtrent)
 
-  // Si l’onglet actif est caché, on retombe sur dash (si possible)
-  const anyVisible = Array.from(tabsBar?.querySelectorAll(".tab") || []).some(b => !b.hidden);
-  if (!anyVisible) return;
+  applySettingsPanels();
 
-  const active = tabsBar?.querySelector(".tab.active:not([hidden])")?.getAttribute("data-tab");
-  if (!active) setActive("dash");
+  // Basculer sur dash si l'actif est masqué
+  const activeBtn = tabsBar?.querySelector(".tab.active");
+  if (activeBtn && activeBtn.hidden) {
+    const firstVisible = tabsBar?.querySelector(".tab:not([hidden])");
+    if (firstVisible) setActive(firstVisible.getAttribute("data-tab"));
+  }
 }
 
 tabsBar?.addEventListener("click", (e) => {
@@ -59,16 +68,10 @@ AppEvents.addEventListener("auth:signedIn", () => {
   setActive("dash");
 });
 
+AppEvents.addEventListener("roles:updated", () => {
+  applyVisibility();
+});
+
 AppEvents.addEventListener("auth:signedOut", () => {
-  // reset visuel
-  tabsBar?.querySelectorAll(".tab").forEach(b => b.hidden = false);
-  tabsBar?.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
-});
-
-AppEvents.addEventListener("auth:pending", () => {
-  // Pas d’app visible -> rien à faire ici
-});
-
-AppEvents.addEventListener("auth:roleMissing", () => {
-  // Pas d’app visible -> rien à faire ici
+  tabsBar?.querySelectorAll(".tab").forEach(b => { b.hidden = false; b.classList.remove("active"); });
 });

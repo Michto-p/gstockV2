@@ -1,119 +1,106 @@
+// public/js/stock.js
+import {
+  AppEvents, canMove, canRead,
+  itemDocRef, itemsCache, setStatus, escapeHtml, toInt
+} from "./core.js";
 
-// stock.js — liste stock + filtres + sélection impression
-import { AppEvents, itemsCache, suppliersCache, itemsColRef, $, safeTrim, toInt, itemStatus, badgeHTML, normalizeThresholds, canRead } from "./core.js";
-import { getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getDoc, updateDoc, addDoc, serverTimestamp, runTransaction
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const els = {
-  search: $("stockSearch"),
-  filter: $("stockFilter"),
-  btnNew: $("btnNewItem"),
-  btnPrintSelected: $("btnPrintSelected"),
-  tbody: $("stockTableBody"),
-  cards: $("stockCards"),
-  hint: $("stockHint"),
-  itemBox: $("itemBox"),
-};
+import { db, movesColRef, auth } from "./core.js";
 
-let selected = new Set();
+const barcode = document.getElementById("barcode");
+const name = document.getElementById("name");
+const qtyDelta = document.getElementById("qtyDelta");
+const reason = document.getElementById("reason");
+const btnAdd = document.getElementById("btnAdd");
+const btnRemove = document.getElementById("btnRemove");
+const btnLoad = document.getElementById("btnLoad");
+const appStatus = document.getElementById("appStatus");
 
-function supplierNames(ids){
-  if(!Array.isArray(ids) || !ids.length) return "";
-  const m = new Map(suppliersCache.map(s=>[s.id,s.name||s.id]));
-  return ids.map(id=>m.get(id)||id).join(", ");
+function findItem(bc) {
+  const code = (bc || "").trim();
+  return (itemsCache || []).find(i => (i.barcode || i.id) === code) || null;
 }
 
-function render(){
-  if(!els.tbody) return;
-  const q = safeTrim(els.search?.value).toLowerCase();
-  const f = els.filter?.value || "all";
+async function loadItemToForm() {
+  setStatus(appStatus, "");
+  if (!canRead()) return;
+  const bc = (barcode?.value || "").trim();
+  if (!bc) return setStatus(appStatus, "Scanne / entre un code-barres.", true);
 
-  const data = itemsCache
-    .slice()
-    .map(it=>({
-      ...it,
-      _barcode: it.barcode||it.id,
-      _qty: toInt(it.qty,0),
-      _status: itemStatus(it),
-      _t: normalizeThresholds(it),
-    }))
-    .filter(it=>{
-      if(f!=="all" && it._status!==f) return false;
-      if(!q) return true;
-      const s = `${it._barcode} ${it.name||""} ${(it.tags||[]).join(" ")} ${supplierNames(it.suppliers||[])}`.toLowerCase();
-      return s.includes(q);
-    })
-    .sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const it = findItem(bc);
+  if (name) name.value = it?.name || "";
+  if (!it) return setStatus(appStatus, "Article introuvable (ajoute-le dans Stock).", true);
 
-  els.tbody.innerHTML = data.map(it=>{
-    const id=it._barcode;
-    const checked = selected.has(id) ? "checked" : "";
-    return `
-      <tr data-id="${id}">
-        <td><input type="checkbox" class="sel" data-id="${id}" ${checked}></td>
-        <td>${badgeHTML(it._status)}</td>
-        <td class="nameCell">${it.name||""}</td>
-        <td class="mono">${id}</td>
-        <td class="qty">${it._qty}</td>
-        <td>${it._t.low}</td>
-        <td>${it._t.critical}</td>
-        <td>${supplierNames(it.suppliers||[])}</td>
-      </tr>
-    `;
-  }).join("");
-
-  els.hint && (els.hint.textContent = `${data.length} article(s)`);
-  els.btnPrintSelected && (els.btnPrintSelected.disabled = selected.size===0);
+  setStatus(appStatus, `OK: ${it.name} (qté ${it.qty ?? 0})`, false);
 }
 
-async function loadItems(){
-  const snap = await getDocs(query(itemsColRef(), orderBy("name")));
-  itemsCache.length=0;
-  snap.forEach(d=>itemsCache.push({id:d.id, ...d.data()}));
-  render();
-  window.__GstockUpdateDashboard?.();
-  window.__GstockUpdateOrders?.();
+export async function applyMove(bc, delta, why) {
+  setStatus(appStatus, "");
+  if (!canMove()) return setStatus(appStatus, "Droits insuffisants (mouvements).", true);
+
+  const barcodeVal = (bc || "").trim();
+  const d = Number(delta || 0);
+  if (!barcodeVal) return setStatus(appStatus, "Code-barres requis.", true);
+  if (!Number.isFinite(d) || d === 0) return setStatus(appStatus, "Delta invalide.", true);
+
+  try {
+    // transaction pour éviter les conflits
+    const res = await runTransaction(db, async (tx) => {
+      const ref = itemDocRef(barcodeVal);
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new Error("Article introuvable.");
+      const data = snap.data() || {};
+      const oldQty = Number(data.qty || 0);
+      const newQty = Math.max(0, oldQty + d);
+
+      tx.update(ref, {
+        qty: newQty,
+        updatedAt: serverTimestamp(),
+        updatedBy: (auth.currentUser?.uid || null)
+      });
+
+      return { data, oldQty, newQty };
+    });
+
+    // log move
+    const itName = res.data?.name || "";
+    await addDoc(movesColRef(), {
+      barcode: barcodeVal,
+      itemName: itName,
+      delta: d,
+      reason: (why || "").trim(),
+      ts: serverTimestamp()
+    });
+
+    // update cache locally
+    const it = findItem(barcodeVal);
+    if (it) it.qty = res.newQty;
+
+    AppEvents.dispatchEvent(new CustomEvent("items:updated", { detail: { items: itemsCache } }));
+    AppEvents.dispatchEvent(new CustomEvent("moves:updated", { detail: {} }));
+
+    setStatus(appStatus, `Stock mis à jour: ${itName || barcodeVal} → ${res.newQty}`, false);
+  } catch (e) {
+    console.error(e);
+    setStatus(appStatus, e?.message || String(e), true);
+  }
 }
 
-window.__GstockReloadItems = loadItems;
-
-function bind(){
-  els.search?.addEventListener("input", render);
-  els.filter?.addEventListener("change", render);
-
-  els.tbody?.addEventListener("click",(e)=>{
-    const cb = e.target.closest("input.sel");
-    if(cb){
-      const id=cb.getAttribute("data-id");
-      if(!id) return;
-      cb.checked ? selected.add(id) : selected.delete(id);
-      els.btnPrintSelected && (els.btnPrintSelected.disabled = selected.size===0);
-      return;
-    }
-    const tr = e.target.closest("tr[data-id]");
-    const id = tr?.getAttribute("data-id");
-    if(id){
-      window.__GstockOpenItemEditor?.(id);
-      els.itemBox && (els.itemBox.scrollIntoView({behavior:"smooth", block:"start"}));
-    }
-  });
-
-  els.btnNew?.addEventListener("click", ()=>{
-    selected.clear();
-    render();
-    window.__GstockOpenItemEditor?.(null);
-    els.itemBox && (els.itemBox.scrollIntoView({behavior:"smooth", block:"start"}));
-  });
-
-  els.btnPrintSelected?.addEventListener("click", ()=>{
-    window.__GstockPrintLabels?.(Array.from(selected));
-  });
+async function onAddRemove(sign) {
+  await loadItemToForm(); // confirme que l'article existe dans cache
+  const bc = (barcode?.value || "").trim();
+  const n = toInt(qtyDelta?.value, 1);
+  const d = sign * Math.max(1, n);
+  await applyMove(bc, d, reason?.value || "");
 }
 
-AppEvents.addEventListener("auth:signedIn", async ()=>{
-  if(!canRead()) return;
-  bind();
-  await loadItems().catch(()=>{});
-  // ouvre le 1er article si existant
-  const first = itemsCache[0]?.barcode || itemsCache[0]?.id;
-  window.__GstockOpenItemEditor?.(first||null);
+btnLoad?.addEventListener("click", loadItemToForm);
+btnAdd?.addEventListener("click", () => onAddRemove(+1));
+btnRemove?.addEventListener("click", () => onAddRemove(-1));
+
+AppEvents.addEventListener("auth:signedIn", () => {
+  setStatus(appStatus, "");
 });

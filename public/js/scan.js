@@ -1,100 +1,94 @@
+// public/js/scan.js
+import { AppEvents, setStatus, canRead } from "./core.js";
 
-// scan.js — scan code-barres (camera) -> remplit le champ #barcode
-import { AppEvents, $, setStatus, canMove } from "./core.js";
+const btnScan = document.getElementById("btnScan");
+const btnStopScan = document.getElementById("btnStopScan");
+const scannerWrap = document.getElementById("scannerWrap");
+const video = document.getElementById("video");
+const barcode = document.getElementById("barcode");
+const appStatus = document.getElementById("appStatus");
+const btnLoad = document.getElementById("btnLoad");
 
-const btnScan = $("btnScan");
-const btnStop = $("btnStopScan");
-const wrap = $("scannerWrap");
-const video = $("video");
-const barcodeInput = $("barcode");
-const statusEl = $("appStatus");
+let stream = null;
+let detector = null;
+let rafId = null;
 
-let stream=null;
-let rafId=null;
-let detector=null;
-let lastCode=null;
-let lastTs=0;
+async function startScan() {
+  setStatus(appStatus, "");
+  if (!canRead()) return;
 
-function supportsDetector(){
-  return ("BarcodeDetector" in window);
-}
-
-async function start(){
-  if(!canMove()) return setStatus(statusEl,"Droits insuffisants.",true);
-  setStatus(statusEl,"");
-  if(!navigator.mediaDevices?.getUserMedia){
-    return setStatus(statusEl,"Caméra non disponible sur ce navigateur.", true);
+  if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+    return setStatus(appStatus, "Caméra non supportée sur ce navigateur.", true);
   }
-  if(!supportsDetector()){
-    wrap && (wrap.hidden=true);
-    return setStatus(statusEl,"BarcodeDetector non supporté. Saisis le code manuellement (iPhone Safari peut être limité).", true);
+  if (!("BarcodeDetector" in window)) {
+    return setStatus(appStatus, "BarcodeDetector non supporté (iPhone: utilise la saisie manuelle).", true);
   }
 
-  detector = new BarcodeDetector({formats:["ean_13","ean_8","code_128","code_39","qr_code","upc_a","upc_e"]});
-  stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720}}, audio:false});
-  video.srcObject = stream;
-  await video.play();
-
-  wrap && (wrap.hidden=false);
-  btnScan && (btnScan.hidden=true);
-  btnStop && (btnStop.hidden=false);
-  loop();
-}
-
-function stop(){
-  if(rafId) cancelAnimationFrame(rafId);
-  rafId=null;
-  if(stream){
-    stream.getTracks().forEach(t=>t.stop());
-    stream=null;
+  try {
+    detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "code_128", "qr_code", "upc_a", "upc_e"] });
+  } catch (e) {
+    detector = new BarcodeDetector();
   }
-  if(video){
-    video.pause();
-    video.srcObject=null;
-  }
-  wrap && (wrap.hidden=true);
-  btnScan && (btnScan.hidden=false);
-  btnStop && (btnStop.hidden=true);
-}
 
-async function loop(){
-  rafId=requestAnimationFrame(loop);
-  if(!detector || !video || video.readyState<2) return;
-
-  const now = performance.now();
-  if(now-lastTs < 120) return; // ~8 fps
-  lastTs = now;
-
-  try{
-    const codes = await detector.detect(video);
-    if(!codes?.length) return;
-    const code = codes[0].rawValue || "";
-    if(!code) return;
-
-    // anti-rebond
-    if(code === lastCode) return;
-    lastCode = code;
-
-    if(barcodeInput){
-      barcodeInput.value = code;
-      barcodeInput.dispatchEvent(new Event("change"));
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    if (video) {
+      video.srcObject = stream;
+      await video.play();
     }
-    setStatus(statusEl, `Scanné: ${code} ✅`);
-    // option: arrêter après scan
-    // stop();
-  }catch(e){
+    if (scannerWrap) scannerWrap.hidden = false;
+    btnScan && (btnScan.hidden = true);
+    btnStopScan && (btnStopScan.hidden = false);
+
+    loop();
+    setStatus(appStatus, "Scan démarré…", false);
+  } catch (e) {
+    console.error(e);
+    setStatus(appStatus, "Impossible d'accéder à la caméra.", true);
+  }
+}
+
+function stopScan() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+
+  if (video) video.pause();
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  detector = null;
+
+  if (scannerWrap) scannerWrap.hidden = true;
+  btnScan && (btnScan.hidden = false);
+  btnStopScan && (btnStopScan.hidden = true);
+}
+
+async function loop() {
+  if (!video || !detector) return;
+  try {
+    const codes = await detector.detect(video);
+    if (codes && codes.length) {
+      const raw = codes[0].rawValue || "";
+      if (raw && barcode) {
+        barcode.value = raw;
+        setStatus(appStatus, `Détecté: ${raw}`, false);
+        // charge l'article (stock.js)
+        btnLoad?.click();
+        // petite pause pour éviter spam
+        stopScan();
+        return;
+      }
+    }
+  } catch (e) {
     // ignore
   }
+  rafId = requestAnimationFrame(loop);
 }
 
-function bind(){
-  btnScan?.addEventListener("click", ()=>start().catch(err=>setStatus(statusEl,err.message,true)));
-  btnStop?.addEventListener("click", ()=>stop());
-  // stop si on change d'onglet / quitte la page
-  window.addEventListener("visibilitychange", ()=>{ if(document.hidden) stop(); });
-}
+btnScan?.addEventListener("click", startScan);
+btnStopScan?.addEventListener("click", stopScan);
 
-AppEvents.addEventListener("auth:signedIn", ()=>{
-  bind();
-});
-AppEvents.addEventListener("auth:signedOut", ()=>stop());
+// stop scan when leaving app
+AppEvents.addEventListener("auth:signedOut", stopScan);

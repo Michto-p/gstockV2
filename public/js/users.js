@@ -1,121 +1,132 @@
+// public/js/users.js
+import {
+  AppEvents, canManageUsers, isAdmin,
+  rolesCache, setStatus, escapeHtml,
+  usersColRef, userDocRef, loadAllRoles
+} from "./core.js";
 
-// users.js — gestion des utilisateurs (profil Firestore) : rôle, validation, suppression profil
-import { AppEvents, db, rolesCache, userProfile, usersColRef, userDocRef, rolesColRef, $, setStatus, safeTrim, isAdmin, canManageUsers, auth } from "./core.js";
-import { getDocs, query, orderBy, limit, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getDocs, updateDoc, deleteDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const els = {
-  btnRefresh: $("btnUsersRefresh"),
-  search: $("usersSearch"),
-  status: $("usersStatus"),
-  list: $("usersList"),
-};
+const btnUsersRefresh = document.getElementById("btnUsersRefresh");
+const usersSearch = document.getElementById("usersSearch");
+const usersStatus = document.getElementById("usersStatus");
+const usersList = document.getElementById("usersList");
 
-let usersData=[];
+let usersCacheLocal = [];
 
-function canEdit(){ return isAdmin() || canManageUsers(); }
+function hasAccess() { return isAdmin() || canManageUsers(); }
 
-async function ensureRolesLoaded(){
-  if(rolesCache.length) return;
-  try{
-    const snap = await getDocs(query(rolesColRef(), orderBy("name")));
-    rolesCache.length=0;
-    snap.forEach(d=>rolesCache.push({id:d.id, ...d.data()}));
-  }catch(e){}
+function roleOptions(selected) {
+  const opts = (rolesCache || []).map(r => {
+    const sel = r.id === selected ? "selected" : "";
+    return `<option value="${escapeHtml(r.id)}" ${sel}>${escapeHtml(r.name || r.id)}</option>`;
+  }).join("");
+  return opts || `<option value="pending">pending</option>`;
 }
 
-function roleOptionsHTML(selected){
-  return rolesCache
-    .slice()
-    .sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id))
-    .map(r=>`<option value="${r.id}" ${r.id===selected?"selected":""}>${r.name||r.id}</option>`)
-    .join("");
-}
+function render() {
+  if (!usersList) return;
+  if (!hasAccess()) {
+    usersList.innerHTML = `<div class="hint">Accès refusé.</div>`;
+    return;
+  }
 
-function render(){
-  if(!els.list) return;
-  const q = safeTrim(els.search?.value).toLowerCase();
-  const data = usersData.filter(u=>{
-    if(!q) return true;
-    const s = `${u.email||""} ${u.roleId||""} ${u.uid||""}`.toLowerCase();
-    return s.includes(q);
-  });
+  const q = (usersSearch?.value || "").toLowerCase();
+  const arr = usersCacheLocal.filter(u => {
+    if (!q) return true;
+    const hay = `${u.email||""} ${u.uid||""} ${u.roleId||""}`.toLowerCase();
+    return hay.includes(q);
+  }).sort((a,b)=> (a.email||a.uid||"").localeCompare(b.email||b.uid||""));
 
-  els.list.innerHTML = data.length ? data.map(u=>{
-    const me = (auth.currentUser?.uid === u.uid);
-    return `<div class="userRow" data-uid="${u.uid}">
-      <div class="userMain">
-        <div class="userEmail">${u.email||"(sans email)"}</div>
-        <div class="userSub mono">${u.uid}</div>
+  usersList.innerHTML = arr.map(u => {
+    const approved = !!u.approved;
+    const badge = approved ? `<span class="badge ok">ok</span>` : `<span class="badge warn">attente</span>`;
+    return `<div class="rowItem">
+      <div class="rowMain">
+        <b>${escapeHtml(u.email || "(sans email)")}</b>
+        <div class="muted">${escapeHtml(u.uid || "")}</div>
       </div>
-      <div class="userMeta">
-        <label class="miniLbl">Rôle</label>
-        <select class="userRole" ${!canEdit()?"disabled":""} ${me?"title='Tu ne peux pas changer ton propre rôle ici'":""}>
-          ${roleOptionsHTML(u.roleId||"pending")}
-        </select>
-        <label class="checkRow miniChk"><input class="userApproved" type="checkbox" ${u.approved?"checked":""} ${!canEdit()?"disabled":""}/>Validé</label>
-        <button class="ghost userSave" ${!canEdit()?"disabled":""}>Enregistrer</button>
-        <button class="danger userDel" ${(!canEdit()||me)?"disabled":""} title="${me?"Impossible sur soi-même":""}">Suppr.</button>
+      <div class="rowSide">
+        ${badge}
+        <select class="uRole" data-uid="${escapeHtml(u.uid)}">${roleOptions(u.roleId || "pending")}</select>
+        <label class="checkRow"><input class="uApproved" type="checkbox" data-uid="${escapeHtml(u.uid)}" ${approved?"checked":""}/>Validé</label>
+        <button class="ghost uSave" type="button" data-uid="${escapeHtml(u.uid)}">Enregistrer</button>
+        <button class="danger uDel" type="button" data-uid="${escapeHtml(u.uid)}">Supprimer</button>
       </div>
     </div>`;
-  }).join("") : `<div class="empty">Aucun utilisateur</div>`;
-
-  els.status && (els.status.textContent = `${data.length} utilisateur(s)`);
+  }).join("");
 }
 
-async function loadUsers(){
-  if(!canEdit()) return;
-  await ensureRolesLoaded();
-  const snap = await getDocs(query(usersColRef(), orderBy("email"), limit(200)));
-  usersData = [];
-  snap.forEach(d=>usersData.push({uid:d.id, ...d.data()}));
-  render();
+async function loadUsers() {
+  setStatus(usersStatus, "");
+  if (!hasAccess()) return;
+
+  try {
+    const snap = await getDocs(usersColRef());
+    const arr = [];
+    snap.forEach(d => arr.push({ uid: d.id, ...(d.data() || {}) }));
+    usersCacheLocal = arr;
+    setStatus(usersStatus, `${arr.length} utilisateur(s).`, false);
+    render();
+  } catch (e) {
+    console.error(e);
+    setStatus(usersStatus, e?.message || String(e), true);
+  }
 }
 
-async function saveRow(uid, roleId, approved){
-  if(!canEdit()) return;
-  await updateDoc(userDocRef(uid), { roleId, approved: !!approved });
+async function saveUser(uid) {
+  setStatus(usersStatus, "");
+  if (!uid) return;
+  const row = usersList?.querySelector(`.uSave[data-uid="${CSS.escape(uid)}"]`)?.closest(".rowItem");
+  const roleSel = usersList?.querySelector(`.uRole[data-uid="${CSS.escape(uid)}"]`);
+  const approvedChk = usersList?.querySelector(`.uApproved[data-uid="${CSS.escape(uid)}"]`);
+
+  const roleId = roleSel?.value || "pending";
+  const approved = !!approvedChk?.checked;
+
+  try {
+    await updateDoc(userDocRef(uid), {
+      roleId,
+      approved,
+      updatedAt: serverTimestamp()
+    });
+    setStatus(usersStatus, "Enregistré.", false);
+    await loadUsers();
+  } catch (e) {
+    console.error(e);
+    setStatus(usersStatus, e?.message || String(e), true);
+  }
 }
 
-async function removeUserProfile(uid){
-  if(!canEdit()) return;
-  if(!confirm("Supprimer ce profil utilisateur (Firestore) ?")) return;
-  await deleteDoc(userDocRef(uid));
+async function deleteUser(uid) {
+  setStatus(usersStatus, "");
+  if (!uid) return;
+  if (!confirm(`Supprimer le profil Firestore de ${uid} ? (N’efface pas le compte Auth)`)) return;
+
+  try {
+    await deleteDoc(userDocRef(uid));
+    setStatus(usersStatus, "Profil supprimé.", false);
+    await loadUsers();
+  } catch (e) {
+    console.error(e);
+    setStatus(usersStatus, e?.message || String(e), true);
+  }
 }
 
-function bind(){
-  els.btnRefresh?.addEventListener("click", ()=>loadUsers().catch(e=>setStatus(els.status,e.message,true)));
-  els.search?.addEventListener("input", render);
+btnUsersRefresh?.addEventListener("click", loadUsers);
+usersSearch?.addEventListener("input", render);
 
-  els.list?.addEventListener("click", async (e)=>{
-    const wrap = e.target.closest(".userRow");
-    const uid = wrap?.getAttribute("data-uid");
-    if(!uid) return;
-
-    if(e.target.classList.contains("userSave")){
-      const roleId = wrap.querySelector("select.userRole")?.value || "pending";
-      const approved = wrap.querySelector("input.userApproved")?.checked || false;
-      try{
-        await saveRow(uid, roleId, approved);
-        setStatus(els.status,"Enregistré ✅");
-      }catch(err){
-        setStatus(els.status, err.message, true);
-      }
-    }
-
-    if(e.target.classList.contains("userDel")){
-      try{
-        await removeUserProfile(uid);
-        setStatus(els.status,"Supprimé ✅");
-        await loadUsers();
-      }catch(err){
-        setStatus(els.status, err.message, true);
-      }
-    }
-  });
-}
-
-AppEvents.addEventListener("auth:signedIn", async ()=>{
-  if(!canEdit()) return;
-  bind();
-  await loadUsers().catch(()=>{});
+usersList?.addEventListener("click", (e) => {
+  const saveBtn = e.target.closest(".uSave");
+  if (saveBtn) return saveUser(saveBtn.getAttribute("data-uid"));
+  const delBtn = e.target.closest(".uDel");
+  if (delBtn) return deleteUser(delBtn.getAttribute("data-uid"));
 });
+
+AppEvents.addEventListener("auth:signedIn", async () => {
+  if (hasAccess()) await loadAllRoles().catch(()=>{});
+  await loadUsers();
+});
+AppEvents.addEventListener("roles:updated", render);

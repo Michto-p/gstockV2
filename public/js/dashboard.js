@@ -1,96 +1,130 @@
+// public/js/dashboard.js
+import {
+  AppEvents, canRead, itemsCache, escapeHtml
+} from "./core.js";
 
-// dashboard.js — KPI + liste à commander (seuil bas) + navigation
-import { AppEvents, itemsCache, suppliersCache, $, safeTrim, toInt, itemStatus, normalizeThresholds, canRead } from "./core.js";
+import { getDocs, orderBy, limit, query } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import { itemsColRef, movesColRef } from "./core.js";
 
-const els = {
-  kpiCrit: $("kpiCrit"),
-  kpiLow: $("kpiLow"),
-  kpiOk: $("kpiOk"),
-  kpiLowZero: $("kpiLowZero"),
-  search: $("dashSearch"),
-  btnGoStock: $("btnDashGoStock"),
-  btnGoOrders: $("btnDashGoOrders"),
-  list: $("dashReorderList"),
-  hint: $("dashReorderHint"),
-};
+const kpiCrit = document.getElementById("kpiCrit");
+const kpiLow = document.getElementById("kpiLow");
+const kpiOk = document.getElementById("kpiOk");
+const kpiLowZero = document.getElementById("kpiLowZero");
 
-function supplierName(id){
-  return suppliersCache.find(s=>s.id===id)?.name || id;
+const dashSearch = document.getElementById("dashSearch");
+const dashReorderList = document.getElementById("dashReorderList");
+const dashReorderHint = document.getElementById("dashReorderHint");
+
+const btnDashGoStock = document.getElementById("btnDashGoStock");
+const btnDashGoOrders = document.getElementById("btnDashGoOrders");
+const movesBox = document.getElementById("moves");
+
+function classify(it) {
+  const qty = Number(it.qty || 0);
+  const low = Number(it.low ?? it.threshold ?? it.seuil ?? 0);
+  const crit = Number(it.critical ?? 0);
+  if (qty <= crit) return "zero";
+  if (qty <= low) return "low";
+  return "ok";
 }
 
-function compute(){
-  const q = safeTrim(els.search?.value).toLowerCase();
-  const rows = itemsCache.map(it=>{
-    const id = it.barcode||it.id;
-    const qty = toInt(it.qty,0);
-    const t = normalizeThresholds(it);
-    const st = itemStatus(it);
-    const need = st==="crit" || st==="low";
-    const sup = Array.isArray(it.suppliers)?it.suppliers:[];
-    const supNames = sup.map(supplierName).join(", ");
-    return {it,id,qty,t,st,need,supNames};
-  });
+function renderReorderList(filter = "") {
+  if (!dashReorderList) return;
+  const f = (filter || "").toLowerCase();
 
-  const crit = rows.filter(r=>r.st==="crit").length;
-  const low = rows.filter(r=>r.st==="low").length;
-  const ok = rows.filter(r=>r.st==="ok").length;
-  const zero = rows.filter(r=>r.need && r.qty===0).length;
+  const lowItems = (itemsCache || [])
+    .map(it => ({ ...it, _cls: classify(it) }))
+    .filter(it => it._cls === "zero" || it._cls === "low")
+    .filter(it => {
+      if (!f) return true;
+      const hay = `${it.name || ""} ${it.barcode || it.id || ""}`.toLowerCase();
+      return hay.includes(f);
+    })
+    .sort((a,b)=> (a._cls=== "zero" ? -1 : 0) - (b._cls=== "zero" ? -1 : 0));
 
-  els.kpiCrit && (els.kpiCrit.textContent = String(crit));
-  els.kpiLow && (els.kpiLow.textContent = String(low));
-  els.kpiOk && (els.kpiOk.textContent = String(ok));
-  els.kpiLowZero && (els.kpiLowZero.textContent = String(zero));
-
-  let needRows = rows.filter(r=>r.need);
-  if(q){
-    needRows = needRows.filter(r=>{
-      const s = `${r.id} ${r.it.name||""} ${(r.it.tags||[]).join(" ")} ${r.supNames}`.toLowerCase();
-      return s.includes(q);
-    });
+  if (lowItems.length === 0) {
+    dashReorderList.innerHTML = `<div class="hint">Aucun article sous seuil.</div>`;
+    if (dashReorderHint) dashReorderHint.textContent = "";
+    return;
   }
-  needRows.sort((a,b)=>{
-    // critique d'abord, puis qty asc
-    const pr = (x)=> x.st==="crit"?0:1;
-    const d = pr(a)-pr(b);
-    if(d!==0) return d;
-    return a.qty-b.qty;
-  });
 
-  if(els.list){
-    els.list.innerHTML = needRows.length ? needRows.slice(0,20).map(r=>`
-      <button class="row" data-id="${r.id}">
-        <div class="rowMain">
-          <div class="rowTitle">${r.it.name||""}</div>
-          <div class="rowSub">Qté ${r.qty} • Seuil bas ${r.t.low} • Crit ${r.t.critical}${r.supNames?` • ${r.supNames}`:""}</div>
-        </div>
-        <div class="rowMeta">${r.st==="crit"?"CRIT":"BAS"}</div>
-      </button>
-    `).join("") : `<div class="empty">Rien à signaler ✅</div>`;
+  dashReorderList.innerHTML = lowItems.map(it => {
+    const bc = it.barcode || it.id || "";
+    const nm = escapeHtml(it.name || "(sans nom)");
+    const qty = Number(it.qty || 0);
+    const th = Number(it.threshold || 0);
+    const badge = it._cls === "zero" ? `<span class="badge danger">0</span>` : `<span class="badge warn">bas</span>`;
+    return `
+      <div class="rowItem">
+        <div class="rowMain"><b>${nm}</b><div class="muted">${escapeHtml(bc)}</div></div>
+        <div class="rowSide">${badge} <span class="mono">${qty}</span> / <span class="mono">${th}</span></div>
+      </div>
+    `;
+  }).join("");
+
+  if (dashReorderHint) dashReorderHint.textContent = `${lowItems.length} article(s) à surveiller / commander.`;
+}
+
+function updateKpis() {
+  if (!kpiCrit || !kpiLow || !kpiOk || !kpiLowZero) return;
+
+  let zero = 0, low = 0, ok = 0;
+  for (const it of (itemsCache || [])) {
+    const c = classify(it);
+    if (c === "zero") zero++;
+    else if (c === "low") low++;
+    else ok++;
   }
-  els.hint && (els.hint.textContent = needRows.length ? `À commander: ${needRows.length} article(s)` : "");
+  kpiCrit.textContent = String(zero);
+  kpiLow.textContent = String(low);
+  kpiOk.textContent = String(ok);
+  kpiLowZero.textContent = String(zero + low);
 }
 
-function bind(){
-  els.search?.addEventListener("input", compute);
-  els.btnGoStock?.addEventListener("click", ()=>{
-    window.__GstockSetTab?.("stock");
-  });
-  els.btnGoOrders?.addEventListener("click", ()=>{
-    window.__GstockSetTab?.("orders");
-  });
-  els.list?.addEventListener("click",(e)=>{
-    const b=e.target.closest("button.row");
-    const id=b?.getAttribute("data-id");
-    if(!id) return;
-    window.__GstockSetTab?.("stock");
-    setTimeout(()=>window.__GstockOpenItemEditor?.(id), 50);
-  });
+async function loadRecentMoves() {
+  if (!movesBox) return;
+  try {
+    const q = query(movesColRef(), orderBy("ts", "desc"), limit(12));
+    const snap = await getDocs(q);
+    const arr = [];
+    snap.forEach(d => arr.push(d.data()));
+    if (arr.length === 0) {
+      movesBox.innerHTML = `<div class="hint">Aucun mouvement.</div>`;
+      return;
+    }
+    movesBox.innerHTML = arr.map(m => {
+      const when = m.ts?.toDate ? m.ts.toDate().toLocaleString() : "";
+      const name = escapeHtml(m.itemName || m.name || "");
+      const bc = escapeHtml(m.barcode || "");
+      const delta = Number(m.delta || 0);
+      const sign = delta > 0 ? "+" : "";
+      return `<div class="rowItem">
+        <div class="rowMain"><b>${name}</b><div class="muted">${bc}</div></div>
+        <div class="rowSide"><span class="mono">${sign}${delta}</span><div class="muted">${escapeHtml(when)}</div></div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    // pas bloquant
+    movesBox.innerHTML = `<div class="hint">Impossible de charger les mouvements.</div>`;
+  }
 }
 
-window.__GstockUpdateDashboard = compute;
+function refreshAll() {
+  if (!canRead()) return;
+  updateKpis();
+  renderReorderList(dashSearch?.value || "");
+  loadRecentMoves();
+}
 
-AppEvents.addEventListener("auth:signedIn", ()=>{
-  if(!canRead()) return;
-  bind();
-  compute();
+dashSearch?.addEventListener("input", () => renderReorderList(dashSearch.value || ""));
+
+btnDashGoStock?.addEventListener("click", () => {
+  document.querySelector('.tab[data-tab="stock"]')?.click();
 });
+btnDashGoOrders?.addEventListener("click", () => {
+  document.querySelector('.tab[data-tab="orders"]')?.click();
+});
+
+AppEvents.addEventListener("auth:signedIn", refreshAll);
+AppEvents.addEventListener("items:updated", refreshAll);
+AppEvents.addEventListener("moves:updated", loadRecentMoves);

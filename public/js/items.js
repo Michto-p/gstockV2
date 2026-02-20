@@ -1,154 +1,291 @@
+// public/js/items.js
+import {
+  AppEvents, canRead, canManageItems, canMove,
+  itemsCache, suppliersCache, rolesCache,
+  itemsColRef, itemDocRef,
+  setStatus, escapeHtml, toInt, normalizeThresholds
+} from "./core.js";
 
-// items.js — édition article (fiche)
-import { AppEvents, itemsCache, suppliersCache, itemDocRef, itemsColRef, $, setStatus, safeTrim, toInt, normalizeThresholds, isAdmin, canManageItems, auth } from "./core.js";
-import { getDoc, setDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getDocs, setDoc, updateDoc, deleteDoc, doc,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const els = {
-  title: $("editorTitle"),
-  barcode: $("edBarcode"),
-  name: $("edName"),
-  unit: $("edUnit"),
-  location: $("edLocation"),
-  low: $("edLow"),
-  critical: $("edCritical"),
-  suppliers: $("edSuppliers"),
-  tags: $("edTags"),
-  btnSuggest: $("btnSuggestCode"),
-  btnSave: $("btnSaveItem"),
-  btnDelete: $("btnDeleteItem"),
-  btnPrintOne: $("btnPrintOne"),
-  status: $("stockStatus"),
-};
+const stockSearch = document.getElementById("stockSearch");
+const stockFilter = document.getElementById("stockFilter");
+const btnNewItem = document.getElementById("btnNewItem");
+const btnPrintSelected = document.getElementById("btnPrintSelected");
 
-let currentBarcode=null;
+const stockTableBody = document.getElementById("stockTableBody");
+const stockCards = document.getElementById("stockCards");
+const stockHint = document.getElementById("stockHint");
 
-function canEdit(){ return isAdmin() || canManageItems(); }
+const editorTitle = document.getElementById("editorTitle");
+const edBarcode = document.getElementById("edBarcode");
+const edName = document.getElementById("edName");
+const edUnit = document.getElementById("edUnit");
+const edLocation = document.getElementById("edLocation");
+const edLow = document.getElementById("edLow");
+const edCritical = document.getElementById("edCritical");
+const edSuppliers = document.getElementById("edSuppliers");
+const edTags = document.getElementById("edTags");
 
-function refreshSupplierOptions(selectedIds=[]){
-  const sel = els.suppliers;
-  if(!sel) return;
+const btnSuggestCode = document.getElementById("btnSuggestCode");
+const btnSaveItem = document.getElementById("btnSaveItem");
+const btnDeleteItem = document.getElementById("btnDeleteItem");
+const btnPrintOne = document.getElementById("btnPrintOne");
+const stockStatus = document.getElementById("stockStatus");
+
+let currentId = ""; // barcode
+
+function getCls(it) {
+  const qty = Number(it.qty || 0);
+  const crit = Number(it.critical ?? 0);
+  const low = Number(it.low ?? it.threshold ?? 0);
+  if (qty <= crit) return "crit";
+  if (qty <= low) return "low";
+  return "ok";
+}
+
+export function getItemByBarcode(barcode) {
+  const bc = (barcode || "").trim();
+  return (itemsCache || []).find(i => (i.barcode || i.id) === bc) || null;
+}
+
+function renderSuppliersSelect(selectedIds = []) {
+  if (!edSuppliers) return;
   const ids = new Set(selectedIds || []);
-  sel.innerHTML = suppliersCache
-    .slice()
-    .sort((a,b)=>(a.name||"").localeCompare(b.name||""))
-    .map(s=>`<option value="${s.id}" ${ids.has(s.id)?"selected":""}>${s.name||"—"}</option>`)
-    .join("");
-}
-window.__GstockRefreshSupplierOptions = ()=>refreshSupplierOptions(getForm().supplierIds);
-
-function parseTags(raw){
-  return safeTrim(raw)
-    .split(/[;,]/g)
-    .map(s=>safeTrim(s))
-    .filter(Boolean)
-    .slice(0,20);
+  const opts = (suppliersCache || []).map(s => {
+    const sel = ids.has(s.id) ? "selected" : "";
+    const nm = escapeHtml(s.name || s.id);
+    return `<option value="${escapeHtml(s.id)}" ${sel}>${nm}</option>`;
+  });
+  edSuppliers.innerHTML = opts.join("");
 }
 
-function openEditor(item){
-  currentBarcode = item?.barcode || item?.id || null;
-  els.title && (els.title.textContent = currentBarcode ? "Fiche article" : "Créer article");
-  els.barcode && (els.barcode.value = currentBarcode || "");
-  els.barcode && (els.barcode.disabled = !!currentBarcode); // id = barcode
-  els.name && (els.name.value = item?.name||"");
-  els.unit && (els.unit.value = item?.unit||"");
-  els.location && (els.location.value = item?.location||"");
-  const t = normalizeThresholds(item);
-  els.low && (els.low.value = String(t.low ?? 5));
-  els.critical && (els.critical.value = String(t.critical ?? 2));
-  const supplierIds = Array.isArray(item?.suppliers) ? item.suppliers : [];
-  refreshSupplierOptions(supplierIds);
-  els.tags && (els.tags.value = (Array.isArray(item?.tags)?item.tags:[]).join(", "));
-  els.btnDelete && (els.btnDelete.disabled = !currentBarcode);
-  els.btnPrintOne && (els.btnPrintOne.disabled = !currentBarcode);
-  setStatus(els.status,"");
+function renderList() {
+  if (!stockTableBody || !stockCards) return;
+
+  const q = (stockSearch?.value || "").toLowerCase();
+  const f = (stockFilter?.value || "all");
+
+  const filtered = (itemsCache || []).filter(it => {
+    const hay = `${it.name || ""} ${it.barcode || it.id || ""} ${(it.tags||"")}`.toLowerCase();
+    if (q && !hay.includes(q)) return false;
+    const cls = getCls(it);
+    if (f === "crit" && cls !== "crit") return false;
+    if (f === "low" && cls !== "low") return false;
+    if (f === "ok" && cls !== "ok") return false;
+    return true;
+  }).sort((a,b)=>{
+    const ca=getCls(a), cb=getCls(b);
+    const rank = (c)=> c==="crit"?0:(c==="low"?1:2);
+    const r = rank(ca)-rank(cb);
+    if (r!==0) return r;
+    return (a.name||"").localeCompare(b.name||"");
+  });
+
+  if (stockHint) stockHint.textContent = `${filtered.length} article(s).`;
+
+  stockTableBody.innerHTML = filtered.map(it=>{
+    const bc = escapeHtml(it.barcode || it.id || "");
+    const nm = escapeHtml(it.name || "(sans nom)");
+    const qty = Number(it.qty || 0);
+    const low = Number(it.low ?? it.threshold ?? 0);
+    const crit = Number(it.critical ?? 0);
+    const cls = getCls(it);
+    const badge = cls==="crit" ? `<span class="badge danger">crit</span>` : (cls==="low" ? `<span class="badge warn">bas</span>` : `<span class="badge ok">ok</span>`);
+    return `<tr class="${cls}">
+      <td><input type="checkbox" class="rowSel" data-id="${bc}"/></td>
+      <td><button type="button" class="link rowOpen" data-id="${bc}">${nm}</button><div class="muted">${bc}</div></td>
+      <td class="mono">${qty}</td>
+      <td class="mono">${low}</td>
+      <td class="mono">${crit}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join("");
+
+  stockCards.innerHTML = filtered.map(it=>{
+    const bc = escapeHtml(it.barcode || it.id || "");
+    const nm = escapeHtml(it.name || "(sans nom)");
+    const qty = Number(it.qty || 0);
+    const low = Number(it.low ?? it.threshold ?? 0);
+    const crit = Number(it.critical ?? 0);
+    const cls = getCls(it);
+    const badge = cls==="crit" ? `critique` : (cls==="low" ? `bas` : `ok`);
+    return `<div class="cardItem ${cls}">
+      <div class="rowItem">
+        <div class="rowMain"><b>${nm}</b><div class="muted">${bc}</div></div>
+        <div class="rowSide"><span class="badge">${badge}</span></div>
+      </div>
+      <div class="rowItem">
+        <div class="muted">Qté</div><div class="mono">${qty}</div>
+        <div class="muted">Bas</div><div class="mono">${low}</div>
+        <div class="muted">Crit</div><div class="mono">${crit}</div>
+      </div>
+      <div class="row"><button type="button" class="ghost rowOpen" data-id="${bc}">Ouvrir</button></div>
+    </div>`;
+  }).join("");
 }
 
-function getForm(){
-  const supplierIds = Array.from(els.suppliers?.selectedOptions||[]).map(o=>o.value).filter(Boolean);
-  return {
-    barcode: safeTrim(els.barcode?.value),
-    name: safeTrim(els.name?.value),
-    unit: safeTrim(els.unit?.value),
-    location: safeTrim(els.location?.value),
-    thresholds: { low: toInt(els.low?.value,5), critical: toInt(els.critical?.value,2) },
-    suppliers: supplierIds,
-    supplierIds,
-    tags: parseTags(els.tags?.value),
-  };
+function openEditor(barcode) {
+  const it = getItemByBarcode(barcode);
+  currentId = barcode || "";
+
+  if (!editorTitle) return;
+  if (!it) {
+    editorTitle.textContent = "Nouvel article";
+    if (edBarcode) edBarcode.value = "";
+    if (edName) edName.value = "";
+    if (edUnit) edUnit.value = "";
+    if (edLocation) edLocation.value = "";
+    if (edLow) edLow.value = "0";
+    if (edCritical) edCritical.value = "0";
+    if (edTags) edTags.value = "";
+    renderSuppliersSelect([]);
+    btnDeleteItem && (btnDeleteItem.disabled = true);
+    btnPrintOne && (btnPrintOne.disabled = true);
+    return;
+  }
+
+  editorTitle.textContent = "Fiche article";
+  if (edBarcode) edBarcode.value = it.barcode || it.id || "";
+  if (edName) edName.value = it.name || "";
+  if (edUnit) edUnit.value = it.unit || "";
+  if (edLocation) edLocation.value = it.location || "";
+  if (edLow) edLow.value = String(it.low ?? it.threshold ?? 0);
+  if (edCritical) edCritical.value = String(it.critical ?? 0);
+  if (edTags) edTags.value = it.tags || "";
+  renderSuppliersSelect(it.suppliers || []);
+  btnDeleteItem && (btnDeleteItem.disabled = !canManageItems());
+  btnPrintOne && (btnPrintOne.disabled = false);
 }
 
-async function saveItem(){
-  if(!canEdit()) return setStatus(els.status,"Droits insuffisants.",true);
-  const f=getForm();
-  if(!f.barcode) return setStatus(els.status,"Code-barres requis.",true);
-  if(!f.name) return setStatus(els.status,"Nom requis.",true);
+function selectedSupplierIds() {
+  if (!edSuppliers) return [];
+  return Array.from(edSuppliers.selectedOptions || []).map(o => o.value).filter(Boolean);
+}
 
-  const exists = itemsCache.find(i=>i.barcode===f.barcode || i.id===f.barcode);
-  const isNew = !exists && !currentBarcode;
+async function saveItem() {
+  setStatus(stockStatus, "");
+  if (!canManageItems()) return setStatus(stockStatus, "Droits insuffisants.", true);
 
-  // si nouveau: qty initial 0
-  const base = isNew ? {qty:0, createdAt: serverTimestamp(), createdBy: auth.currentUser?.uid||null } : {};
-  await setDoc(itemDocRef(f.barcode), {
-    barcode: f.barcode,
-    name: f.name,
-    unit: f.unit,
-    location: f.location,
-    thresholds: { low: Math.max(0,f.thresholds.low), critical: Math.max(0,f.thresholds.critical) },
-    suppliers: f.suppliers,
-    tags: f.tags,
-    ...base,
+  const barcode = (edBarcode?.value || "").trim();
+  const name = (edName?.value || "").trim();
+  if (!barcode) return setStatus(stockStatus, "Code-barres obligatoire.", true);
+  if (!name) return setStatus(stockStatus, "Nom obligatoire.", true);
+
+  const payload = normalizeThresholds({
+    barcode,
+    name,
+    unit: (edUnit?.value || "").trim(),
+    location: (edLocation?.value || "").trim(),
+    low: Math.max(0, toInt(edLow?.value, 0)),
+    critical: Math.max(0, toInt(edCritical?.value, 0)),
+    suppliers: selectedSupplierIds(),
+    tags: (edTags?.value || "").trim(),
     updatedAt: serverTimestamp(),
-    updatedBy: auth.currentUser?.uid||null,
-  }, {merge:true});
-
-  setStatus(els.status,"Enregistré ✅");
-  currentBarcode = f.barcode;
-  els.barcode && (els.barcode.disabled = true);
-  await window.__GstockReloadItems?.();
-  openEditor(itemsCache.find(i=>(i.barcode||i.id)===f.barcode) || {id:f.barcode, ...f, qty:0});
-}
-
-async function removeItem(){
-  if(!canEdit()) return setStatus(els.status,"Droits insuffisants.",true);
-  const id = currentBarcode || safeTrim(els.barcode?.value);
-  if(!id) return;
-  if(!confirm(`Supprimer l'article "${id}" ?`)) return;
-  await deleteDoc(itemDocRef(id));
-  setStatus(els.status,"Supprimé ✅");
-  currentBarcode=null;
-  openEditor(null);
-  await window.__GstockReloadItems?.();
-}
-
-function suggestCode(){
-  // Simple: timestamp + 4 digits (pour tests). En prod, scanner ou EAN.
-  const d = new Date();
-  const code = `GEN-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${String(Math.floor(Math.random()*9000)+1000)}`;
-  if(els.barcode) els.barcode.value=code;
-}
-
-function bind(){
-  els.btnSuggest?.addEventListener("click", suggestCode);
-  els.btnSave?.addEventListener("click", ()=>saveItem().catch(err=>setStatus(els.status,err.message,true)));
-  els.btnDelete?.addEventListener("click", ()=>removeItem().catch(err=>setStatus(els.status,err.message,true)));
-  els.btnPrintOne?.addEventListener("click", ()=>{
-    const id = currentBarcode || safeTrim(els.barcode?.value);
-    if(!id) return;
-    window.__GstockPrintLabels?.([id]);
   });
+
+  const existing = getItemByBarcode(barcode);
+  try {
+    if (!existing) {
+      payload.qty = 0;
+      payload.createdAt = serverTimestamp();
+      await setDoc(itemDocRef(barcode), payload, { merge: true });
+    } else {
+      await updateDoc(itemDocRef(barcode), payload);
+    }
+    setStatus(stockStatus, "Enregistré.", false);
+    await loadItems();
+    openEditor(barcode);
+  } catch (e) {
+    console.error(e);
+    setStatus(stockStatus, e?.message || String(e), true);
+  }
 }
 
-window.__GstockOpenItemEditor = (barcode)=>{
-  if(!barcode) return openEditor(null);
-  const it = itemsCache.find(i=>(i.barcode||i.id)===barcode);
-  if(it) return openEditor(it);
-  // fallback: fetch
-  getDoc(itemDocRef(barcode)).then(snap=>{
-    if(snap.exists()) openEditor({id:snap.id, ...snap.data()});
-  });
-};
+async function deleteItem() {
+  setStatus(stockStatus, "");
+  if (!canManageItems()) return setStatus(stockStatus, "Droits insuffisants.", true);
 
-AppEvents.addEventListener("auth:signedIn", ()=>{
-  bind();
-  // l'ouverture initiale est gérée par stock.js (après load items)
+  const barcode = (edBarcode?.value || "").trim();
+  if (!barcode) return;
+
+  if (!confirm(`Supprimer l'article ${barcode} ?`)) return;
+  try {
+    await deleteDoc(itemDocRef(barcode));
+    setStatus(stockStatus, "Supprimé.", false);
+    await loadItems();
+    openEditor("");
+  } catch (e) {
+    console.error(e);
+    setStatus(stockStatus, e?.message || String(e), true);
+  }
+}
+
+function suggestCode() {
+  // simple code : timestamp (pas un vrai EAN)
+  if (!edBarcode) return;
+  const code = "GS" + Date.now().toString(10);
+  edBarcode.value = code;
+}
+
+export async function loadItems() {
+  if (!canRead()) return [];
+  const snap = await getDocs(itemsColRef());
+  const arr = [];
+  snap.forEach(d => arr.push({ id: d.id, ...(d.data() || {}) }));
+  // normalise
+  for (const it of arr) {
+    if (!it.barcode) it.barcode = it.id;
+    if (typeof it.qty !== "number") it.qty = Number(it.qty || 0);
+    it.low = Number(it.low ?? it.threshold ?? 0);
+    it.critical = Number(it.critical ?? 0);
+  }
+    // update export from core (binding live: on mute le tableau)
+  itemsCache.length = 0;
+  itemsCache.push(...arr);
+
+  AppEvents.dispatchEvent(new CustomEvent("items:updated", { detail: { items: arr } }));
+  return arr;
+}
+
+function onRowOpen(e) {
+  const btn = e.target.closest(".rowOpen");
+  const id = btn?.getAttribute("data-id");
+  if (id) openEditor(id);
+}
+
+stockTableBody?.addEventListener("click", onRowOpen);
+stockCards?.addEventListener("click", onRowOpen);
+
+stockSearch?.addEventListener("input", renderList);
+stockFilter?.addEventListener("change", renderList);
+
+btnNewItem?.addEventListener("click", () => openEditor(""));
+btnSuggestCode?.addEventListener("click", suggestCode);
+btnSaveItem?.addEventListener("click", saveItem);
+btnDeleteItem?.addEventListener("click", deleteItem);
+
+// Minimal print placeholders
+btnPrintOne?.addEventListener("click", () => {
+  const barcode = (edBarcode?.value || "").trim();
+  if (!barcode) return;
+  window.open(`./?print=${encodeURIComponent(barcode)}`, "_blank");
 });
+btnPrintSelected?.addEventListener("click", () => alert("Impression multi à venir (sélection)."));
+
+// Refresh suppliers select when suppliers updated
+AppEvents.addEventListener("suppliers:updated", () => {
+  const it = getItemByBarcode(currentId);
+  renderSuppliersSelect(it?.suppliers || []);
+});
+
+// Auth hook
+AppEvents.addEventListener("auth:signedIn", async () => {
+  await loadItems();
+  renderList();
+  openEditor("");
+});
+AppEvents.addEventListener("items:updated", () => renderList());

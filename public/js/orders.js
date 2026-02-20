@@ -1,141 +1,129 @@
+// public/js/orders.js
+import {
+  AppEvents, canRead,
+  itemsCache, suppliersCache, escapeHtml
+} from "./core.js";
 
-// orders.js — onglet "Commande" : liste auto des articles à commander, groupée par fournisseur
-import { AppEvents, itemsCache, suppliersCache, $, toInt, itemStatus, normalizeThresholds, canRead } from "./core.js";
+const btnOrdersRefresh = document.getElementById("btnOrdersRefresh");
+const btnOrdersExport = document.getElementById("btnOrdersExport");
+const ordersWrap = document.getElementById("ordersWrap");
+const ordersHint = document.getElementById("ordersHint");
 
-const els = {
-  btnRefresh: $("btnOrdersRefresh"),
-  btnExport: $("btnOrdersExport"),
-  wrap: $("ordersWrap"),
-  hint: $("ordersHint"),
-};
-
-function supplierName(id){
-  return suppliersCache.find(s=>s.id===id)?.name || id || "Sans fournisseur";
+function needOrder(it) {
+  const qty = Number(it.qty || 0);
+  const low = Number(it.low ?? it.threshold ?? 0);
+  const crit = Number(it.critical ?? 0);
+  // à commander si <= low, ou <= crit (inclus)
+  return qty <= low || qty <= crit;
 }
 
-function build(){
-  const needs = itemsCache
-    .map(it=>{
-      const id = it.barcode||it.id;
-      const qty = toInt(it.qty,0);
-      const st = itemStatus(it);
-      const t = normalizeThresholds(it);
-      const want = st==="crit" || st==="low";
-      const sIds = Array.isArray(it.suppliers) && it.suppliers.length ? it.suppliers : [""];
-      return {it,id,qty,st,t,want,sIds};
-    })
-    .filter(x=>x.want);
+function supplierName(id) {
+  if (!id) return "Sans fournisseur";
+  const s = (suppliersCache || []).find(x => x.id === id);
+  return s?.name || id;
+}
 
-  // groupe: un article peut apparaître chez plusieurs fournisseurs (si multi)
-  const groups = new Map(); // supId -> items[]
-  for(const row of needs){
-    for(const supId of row.sIds){
-      const k = supId || "";
-      if(!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(row);
+function buildGroups() {
+  const groups = new Map(); // supplierId -> items[]
+  const noSupKey = "__none__";
+
+  for (const it of (itemsCache || [])) {
+    if (!needOrder(it)) continue;
+    const sids = Array.isArray(it.suppliers) ? it.suppliers.filter(Boolean) : [];
+    if (sids.length === 0) {
+      if (!groups.has(noSupKey)) groups.set(noSupKey, []);
+      groups.get(noSupKey).push(it);
+    } else {
+      for (const sid of sids) {
+        if (!groups.has(sid)) groups.set(sid, []);
+        groups.get(sid).push(it);
+      }
     }
   }
 
-  const supIds = Array.from(groups.keys()).sort((a,b)=>supplierName(a).localeCompare(supplierName(b)));
-  const total = needs.length;
+  // sort items in each group
+  for (const [k, arr] of groups.entries()) {
+    arr.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+    groups.set(k, arr);
+  }
 
-  if(els.hint) els.hint.textContent = total ? `${total} article(s) à commander` : "Rien à commander ✅";
+  return groups;
+}
 
-  if(!els.wrap) return;
-  if(!supIds.length){
-    els.wrap.innerHTML = `<div class="empty">Liste vide ✅</div>`;
+function render() {
+  if (!ordersWrap) return;
+  if (!canRead()) return;
+
+  const groups = buildGroups();
+  const keys = Array.from(groups.keys()).sort((a,b)=>{
+    if (a==="__none__") return 1;
+    if (b==="__none__") return -1;
+    return supplierName(a).localeCompare(supplierName(b));
+  });
+
+  let total = 0;
+  for (const k of keys) total += groups.get(k).length;
+
+  ordersHint && (ordersHint.textContent = total ? `${total} ligne(s) à commander (groupées).` : "Rien à commander.");
+  if (!total) {
+    ordersWrap.innerHTML = `<div class="hint">Aucun article sous seuil.</div>`;
     return;
   }
 
-  els.wrap.innerHTML = supIds.map(supId=>{
-    const rows = groups.get(supId)
-      .slice()
-      .sort((a,b)=>{
-        const p = (x)=>x.st==="crit"?0:1;
-        const d=p(a)-p(b);
-        if(d!==0) return d;
-        return a.qty-b.qty;
-      });
+  ordersWrap.innerHTML = keys.map(k=>{
+    const title = escapeHtml(k==="__none__" ? "Sans fournisseur" : supplierName(k));
+    const arr = groups.get(k) || [];
+    const rows = arr.map(it=>{
+      const bc = escapeHtml(it.barcode || it.id || "");
+      const nm = escapeHtml(it.name || "(sans nom)");
+      const qty = Number(it.qty || 0);
+      const low = Number(it.low ?? it.threshold ?? 0);
+      const crit = Number(it.critical ?? 0);
+      const suggest = Math.max(0, (low > 0 ? (low - qty) : (crit - qty)));
+      return `<div class="rowItem">
+        <div class="rowMain"><b>${nm}</b><div class="muted">${bc}</div></div>
+        <div class="rowSide"><span class="mono">${qty}</span> / <span class="mono">${low}</span> / <span class="mono">${crit}</span>
+          <div class="muted">à commander ~ <span class="mono">${suggest}</span></div>
+        </div>
+      </div>`;
+    }).join("");
 
-    const title = supplierName(supId);
-    const head = supId ? `<div class="supplierSub mono">${supId}</div>` : `<div class="supplierSub">—</div>`;
-
-    const table = `
-      <table class="mini">
-        <thead><tr><th>État</th><th>Nom</th><th>Code</th><th>Qté</th><th>Seuil bas</th><th>Crit</th></tr></thead>
-        <tbody>
-          ${rows.map(r=>`
-            <tr>
-              <td>${r.st==="crit"?"CRIT":"BAS"}</td>
-              <td>${r.it.name||""}</td>
-              <td class="mono">${r.id}</td>
-              <td class="qty">${r.qty}</td>
-              <td>${r.t.low}</td>
-              <td>${r.t.critical}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    `;
-    return `<section class="supplierBlock" data-sup="${supId}">
-      <div class="supplierTitle">${title}</div>
-      ${head}
-      ${table}
-    </section>`;
+    return `<div class="card innerCard">
+      <h3>${title}</h3>
+      ${rows}
+    </div>`;
   }).join("");
 }
 
-function exportCsv(){
-  const rows = [];
-  rows.push(["Fournisseur","FournisseurId","État","Nom","Code","Qté","SeuilBas","Critique"].join(";"));
-
-  const needs = itemsCache
-    .map(it=>{
-      const id = it.barcode||it.id;
-      const qty = toInt(it.qty,0);
-      const st = itemStatus(it);
-      const t = normalizeThresholds(it);
-      const want = st==="crit" || st==="low";
-      const sIds = Array.isArray(it.suppliers) && it.suppliers.length ? it.suppliers : [""];
-      return {it,id,qty,st,t,want,sIds};
-    })
-    .filter(x=>x.want);
-
-  for(const row of needs){
-    for(const supId of row.sIds){
-      rows.push([
-        supplierName(supId),
-        supId||"",
-        row.st==="crit"?"CRIT":"BAS",
-        (row.it.name||"").replaceAll(";"," "),
-        row.id,
-        String(row.qty),
-        String(row.t.low),
-        String(row.t.critical),
-      ].join(";"));
+function exportCsv() {
+  const groups = buildGroups();
+  const lines = [["supplier","supplierName","barcode","name","qty","low","critical"]];
+  for (const [sid, arr] of groups.entries()) {
+    for (const it of arr) {
+      lines.push([
+        sid==="__none__" ? "" : sid,
+        supplierName(sid==="__none__" ? "" : sid),
+        it.barcode || it.id || "",
+        it.name || "",
+        String(it.qty ?? 0),
+        String(it.low ?? it.threshold ?? 0),
+        String(it.critical ?? 0),
+      ]);
     }
   }
-
-  const blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8"});
+  const csv = lines.map(row => row.map(v => `"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `gstock_commandes_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
+  a.download = "gstock_commandes.csv";
   a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 500);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
 }
 
-function bind(){
-  els.btnRefresh?.addEventListener("click", build);
-  els.btnExport?.addEventListener("click", exportCsv);
-}
+btnOrdersRefresh?.addEventListener("click", render);
+btnOrdersExport?.addEventListener("click", exportCsv);
 
-window.__GstockUpdateOrders = build;
-
-AppEvents.addEventListener("auth:signedIn", ()=>{
-  if(!canRead()) return;
-  bind();
-  build();
-});
+AppEvents.addEventListener("auth:signedIn", render);
+AppEvents.addEventListener("items:updated", render);
+AppEvents.addEventListener("suppliers:updated", render);

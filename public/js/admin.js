@@ -1,114 +1,119 @@
+// public/js/admin.js
+import {
+  AppEvents, isAdmin, setStatus, escapeHtml,
+  usersColRef, userDocRef, itemsColRef, db
+} from "./core.js";
 
-// admin.js — zone admin : valider les comptes + vider le stock
-import { AppEvents, db, auth, rolesCache, usersColRef, userDocRef, rolesColRef, itemsColRef, itemDocRef, $, setStatus, safeTrim, isAdmin } from "./core.js";
-import { getDocs, query, where, orderBy, limit, updateDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import {
+  getDocs, updateDoc, serverTimestamp, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-const els = {
-  btnRefresh: $("btnRefreshPending"),
-  status: $("adminStatus"),
-  list: $("pendingList"),
-  chk: $("chkConfirmClear"),
-  txt: $("txtConfirmClear"),
-  btnClear: $("btnClearStock"),
-};
+const btnRefreshPending = document.getElementById("btnRefreshPending");
+const adminStatus = document.getElementById("adminStatus");
+const pendingList = document.getElementById("pendingList");
 
-let pendings=[];
+const chkConfirmClear = document.getElementById("chkConfirmClear");
+const txtConfirmClear = document.getElementById("txtConfirmClear");
+const btnClearStock = document.getElementById("btnClearStock");
 
-async function ensureRolesLoaded(){
-  if(rolesCache.length) return;
-  const snap = await getDocs(query(rolesColRef(), orderBy("name")));
-  rolesCache.length=0;
-  snap.forEach(d=>rolesCache.push({id:d.id, ...d.data()}));
-}
+let pending = [];
 
-function roleOptionsHTML(selected){
-  const filtered = rolesCache.filter(r=>r.id!=="pending"); // role pending réservé
-  return filtered
-    .slice()
-    .sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id))
-    .map(r=>`<option value="${r.id}" ${r.id===selected?"selected":""}>${r.name||r.id}</option>`)
-    .join("");
-}
-
-function renderPending(){
-  if(!els.list) return;
-  els.list.innerHTML = pendings.length ? pendings.map(u=>`
-    <div class="pendingRow" data-uid="${u.uid}">
-      <div class="pendingMain">
-        <div class="pendingEmail">${u.email||"(sans email)"}</div>
-        <div class="pendingSub mono">${u.uid}</div>
+function renderPending() {
+  if (!pendingList) return;
+  if (!isAdmin()) {
+    pendingList.innerHTML = `<div class="hint">Admin uniquement.</div>`;
+    return;
+  }
+  if (pending.length === 0) {
+    pendingList.innerHTML = `<div class="hint">Aucun compte en attente.</div>`;
+    return;
+  }
+  pendingList.innerHTML = pending.map(u => {
+    return `<div class="rowItem">
+      <div class="rowMain">
+        <b>${escapeHtml(u.email || "(sans email)")}</b>
+        <div class="muted">${escapeHtml(u.uid || "")}</div>
       </div>
-      <div class="pendingMeta">
-        <select class="pendingRole">
-          ${roleOptionsHTML(u.roleId && u.roleId!=="pending" ? u.roleId : "stock")}
-        </select>
-        <button class="pendingApprove">Valider</button>
+      <div class="rowSide">
+        <button class="ghost pApprove" type="button" data-uid="${escapeHtml(u.uid)}">Valider</button>
+        <button class="danger pReject" type="button" data-uid="${escapeHtml(u.uid)}">Refuser</button>
       </div>
-    </div>
-  `).join("") : `<div class="empty">Aucun compte en attente ✅</div>`;
-  setStatus(els.status, pendings.length ? `${pendings.length} compte(s) en attente` : "OK");
+    </div>`;
+  }).join("");
 }
 
-async function loadPending(){
-  if(!isAdmin()) return;
-  await ensureRolesLoaded();
-  const snap = await getDocs(query(usersColRef(), where("approved","==",false), orderBy("email"), limit(200)));
-  pendings=[];
-  snap.forEach(d=>{
-    const u = d.data()||{};
-    pendings.push({uid:d.id, ...u});
-  });
-  renderPending();
+async function loadPending() {
+  setStatus(adminStatus, "");
+  if (!isAdmin()) return;
+
+  try {
+    const snap = await getDocs(usersColRef());
+    const arr = [];
+    snap.forEach(d => {
+      const data = d.data() || {};
+      if (!data.approved || data.roleId === "pending") arr.push({ uid: d.id, ...data });
+    });
+    pending = arr;
+    setStatus(adminStatus, `${arr.length} compte(s) en attente.`, false);
+    renderPending();
+  } catch (e) {
+    console.error(e);
+    setStatus(adminStatus, e?.message || String(e), true);
+  }
 }
 
-async function approve(uid, roleId){
-  await updateDoc(userDocRef(uid), { approved:true, roleId: roleId||"stock", approvedAt: serverTimestamp(), approvedBy: auth.currentUser?.uid||null });
+async function approve(uid, approved) {
+  if (!uid) return;
+  try {
+    await updateDoc(userDocRef(uid), {
+      approved,
+      roleId: approved ? "stock" : "pending",
+      updatedAt: serverTimestamp()
+    });
+    await loadPending();
+  } catch (e) {
+    console.error(e);
+    setStatus(adminStatus, e?.message || String(e), true);
+  }
 }
 
-async function clearStock(){
-  if(!isAdmin()) return setStatus(els.status,"Admin requis.",true);
-  if(!els.chk?.checked) return setStatus(els.status,"Coche la confirmation.",true);
-  if(safeTrim(els.txt?.value).toUpperCase()!=="VIDER") return setStatus(els.status,'Tape "VIDER".',true);
+async function clearStock() {
+  setStatus(adminStatus, "");
+  if (!isAdmin()) return setStatus(adminStatus, "Admin uniquement.", true);
+  if (!chkConfirmClear?.checked) return setStatus(adminStatus, "Coche la confirmation.", true);
+  if ((txtConfirmClear?.value || "").trim().toUpperCase() !== "VIDER") return setStatus(adminStatus, "Tape VIDER.", true);
+  if (!confirm("Dernière confirmation : mettre toutes les quantités à 0 ?")) return;
 
-  if(!confirm("Confirmer : mettre tous les stocks à 0 ?")) return;
-  setStatus(els.status,"Vidage en cours…");
-
-  const snap = await getDocs(query(itemsColRef(), limit(5000)));
-  const batch = writeBatch(db);
-  let n=0;
-  snap.forEach(d=>{
-    batch.update(itemDocRef(d.id), { qty:0, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.uid||null });
-    n++;
-  });
-  await batch.commit();
-  setStatus(els.status, `Stock vidé ✅ (${n} articles)`);
-  els.chk && (els.chk.checked=false);
-  els.txt && (els.txt.value="");
-  await window.__GstockReloadItems?.();
-  await window.__GstockUpdateDashboard?.();
-  await window.__GstockUpdateOrders?.();
-}
-
-function bind(){
-  els.btnRefresh?.addEventListener("click", ()=>loadPending().catch(e=>setStatus(els.status,e.message,true)));
-  els.list?.addEventListener("click", async (e)=>{
-    if(!e.target.classList.contains("pendingApprove")) return;
-    const row = e.target.closest(".pendingRow");
-    const uid = row?.getAttribute("data-uid");
-    const roleId = row?.querySelector("select.pendingRole")?.value || "stock";
-    try{
-      await approve(uid, roleId);
-      setStatus(els.status, "Validé ✅");
-      await loadPending();
-    }catch(err){
-      setStatus(els.status, err.message, true);
+  try {
+    const snap = await getDocs(itemsColRef());
+    const docs = [];
+    snap.forEach(d => docs.push(d.ref));
+    let count = 0;
+    // batch par 450
+    for (let i = 0; i < docs.length; i += 450) {
+      const batch = writeBatch(db);
+      const slice = docs.slice(i, i + 450);
+      for (const ref of slice) {
+        batch.update(ref, { qty: 0, updatedAt: serverTimestamp() });
+        count++;
+      }
+      await batch.commit();
     }
-  });
-  els.btnClear?.addEventListener("click", ()=>clearStock().catch(e=>setStatus(els.status,e.message,true)));
+    setStatus(adminStatus, `Stock vidé (${count} articles).`, false);
+    AppEvents.dispatchEvent(new CustomEvent("items:updated", { detail: {} }));
+  } catch (e) {
+    console.error(e);
+    setStatus(adminStatus, e?.message || String(e), true);
+  }
 }
 
-AppEvents.addEventListener("auth:signedIn", async ()=>{
-  if(!isAdmin()) return;
-  bind();
-  await loadPending().catch(()=>{});
+btnRefreshPending?.addEventListener("click", loadPending);
+pendingList?.addEventListener("click", (e) => {
+  const a = e.target.closest(".pApprove");
+  if (a) return approve(a.getAttribute("data-uid"), true);
+  const r = e.target.closest(".pReject");
+  if (r) return approve(r.getAttribute("data-uid"), false);
 });
+btnClearStock?.addEventListener("click", clearStock);
+
+AppEvents.addEventListener("auth:signedIn", loadPending);
