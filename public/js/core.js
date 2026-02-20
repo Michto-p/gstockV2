@@ -14,7 +14,7 @@ import {
  * 2) vérifie Firestore (roles + users/UID)
  * 3) remets OWNER_UID = "" et redéploie
  */
-export const OWNER_UID = ""; // <-- COLLE TON UID ICI (temporairement)
+export const OWNER_UID = "pxEjO8xAUxQcrwEILjwxi9OlFp82"; // <-- COLLE TON UID ICI (temporairement)
 
 /** Firebase config */
 export const firebaseConfig = {
