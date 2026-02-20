@@ -1,66 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() { return request.auth != null; }
+    function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function myRoleId() { return myUser().data.roleId; }
+    function myRole() { return get(/databases/$(database)/documents/roles/$(myRoleId())); }
+    function approved() { return myUser().data.approved == true; }
+    function perm(p) { return signedIn() && approved() && myRole().data.perms[p] == true; }
+    function isAdmin() { return signedIn() && approved() && (myRoleId() == "admin" || myRole().data.perms.admin == true); }
 
-    function myUserDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function isApproved() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && myUserDoc().data.approved == true;
-    }
-
-    function myRole() {
-      return isApproved() ? (myUserDoc().data.role) : "pending";
-    }
-
-    function isAdmin() { return myRole() == "admin"; }
-    function isStock() { return myRole() == "stock"; }
-
-    // USERS
-    match /users/{uid} {
-      // admin peut lire/lister tous, utilisateur peut lire son doc
-      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
-
-      // création uniquement par l’utilisateur lui-même en pending
-      allow create: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.role == "pending"
-        && request.resource.data.approved == false;
-
-      // modification/suppression: admin seulement
-      allow update, delete: if isAdmin();
-    }
-
-    // ITEMS
-    match /items/{barcode} {
-      // lecture: tous les users validés
-      allow read: if isApproved();
-
-      // création/suppression: admin seulement
-      allow create, delete: if isAdmin();
-
-      // update:
-      // - admin: tout
-      // - stock: uniquement qty + updatedAt + updatedBy + lastMoveAt
-      allow update: if isAdmin() || (
-        isStock()
-        && request.resource.data.diff(resource.data).changedKeys()
-          .hasOnly(["qty", "updatedAt", "updatedBy", "lastMoveAt"])
-        && request.resource.data.qty is int
-        && request.resource.data.qty >= 0
-      );
-    }
-
-    // MOVES
-    match /moves/{id} {
-      allow read: if isApproved();
-      allow create: if isAdmin() || isStock();
-      allow update, delete: if isAdmin();
-    }
+    match /roles/{rid} { allow read: if isAdmin() || perm("roles"); allow create, update, delete: if isAdmin() || perm("roles"); }
+    match /users/{uid} { allow create: if signedIn() && request.auth.uid == uid; allow read: if (signedIn() && request.auth.uid == uid) || isAdmin() || perm("users"); allow update, delete: if isAdmin() || perm("users"); }
+    match /suppliers/{id} { allow read: if perm("read"); allow create, update, delete: if isAdmin() || perm("suppliers"); }
+    match /items/{barcode} { allow read: if perm("read"); allow create, update, delete: if isAdmin() || perm("items"); }
+    match /moves/{id} { allow read: if perm("read"); allow create: if perm("move"); allow update, delete: if isAdmin(); }
   }
 }
