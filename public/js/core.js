@@ -277,7 +277,12 @@ onAuthStateChanged(auth, async (u) => {
     emit("auth:signedOut");
     return;
   }
-
+try {
+  const res = await bootstrapRolesIfNeeded();
+  console.log("[bootstrapRolesIfNeeded]", res);
+} catch (e) {
+  console.error("bootstrap roles failed", e);
+}
   btnLogout && (btnLogout.hidden = false);
   setStatus(status, "Chargement…");
 
