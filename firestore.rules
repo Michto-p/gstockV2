@@ -1,18 +1,60 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function myUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
-    function myRoleId() { return myUser().data.roleId; }
-    function myRole() { return get(/databases/$(database)/documents/roles/$(myRoleId())); }
-    function approved() { return myUser().data.approved == true; }
-    function perm(p) { return signedIn() && approved() && myRole().data.perms[p] == true; }
-    function isAdmin() { return signedIn() && approved() && (myRoleId() == "admin" || myRole().data.perms.admin == true); }
 
-    match /roles/{rid} { allow read: if isAdmin() || perm("roles"); allow create, update, delete: if isAdmin() || perm("roles"); }
-    match /users/{uid} { allow create: if signedIn() && request.auth.uid == uid; allow read: if (signedIn() && request.auth.uid == uid) || isAdmin() || perm("users"); allow update, delete: if isAdmin() || perm("users"); }
-    match /suppliers/{id} { allow read: if perm("read"); allow create, update, delete: if isAdmin() || perm("suppliers"); }
-    match /items/{barcode} { allow read: if perm("read"); allow create, update, delete: if isAdmin() || perm("items"); }
-    match /moves/{id} { allow read: if perm("read"); allow create: if perm("move"); allow update, delete: if isAdmin(); }
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function rolePath(rid) { return /databases/$(database)/documents/roles/$(rid); }
+
+    function hasUserDoc() { return signedIn() && exists(userPath()); }
+    function myUser() { return get(userPath()); }
+    function approved() { return hasUserDoc() && myUser().data.approved == true; }
+
+    function myRoleId() { return hasUserDoc() ? myUser().data.roleId : "pending"; }
+    function myRole() { return get(rolePath(myRoleId())); }
+
+    function perm(p) { return approved() && (myRole().data.perms[p] == true); }
+    function isAdmin() { return approved() && (myRoleId() == "admin" || myRole().data.perms.admin == true); }
+
+    // RÔLES
+    match /roles/{rid} {
+      allow read: if isAdmin() || perm("roles") || (approved() && rid == myRoleId()); // lire son rôle
+      allow create, update, delete: if isAdmin() || perm("roles");
+    }
+
+    // UTILISATEURS
+    match /users/{uid} {
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin() || perm("users");
+      allow update, delete: if isAdmin() || perm("users");
+    }
+
+    // FOURNISSEURS
+    match /suppliers/{id} {
+      allow read: if perm("read");
+      allow create, update, delete: if isAdmin() || perm("suppliers");
+    }
+
+    // ARTICLES
+    match /items/{barcode} {
+      allow read: if perm("read");
+
+      // création / édition complète
+      allow create, delete: if isAdmin() || perm("items");
+
+      // update: soit gestion articles, soit mouvement (uniquement qty + meta)
+      allow update: if (isAdmin() || perm("items")) ||
+        (perm("move") &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["qty","updatedAt","updatedBy"])
+        );
+    }
+
+    // MOUVEMENTS
+    match /moves/{id} {
+      allow read: if perm("read");
+      allow create: if perm("move");
+      allow update, delete: if isAdmin();
+    }
   }
 }
