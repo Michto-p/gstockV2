@@ -15,7 +15,7 @@ import {
  * - te met admin + approved automatiquement
  * - autorise le bootstrap des rôles de base si roles est vide
  */
-export const OWNER_UID = "COLLE_ICI_TON_UID";
+export const OWNER_UID = "pxEjO8xAUxQcrwEILjwxi9OlFp82";
 
 /**
  * ✅ Firebase config
