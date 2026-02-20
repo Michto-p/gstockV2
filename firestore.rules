@@ -2,92 +2,101 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function userDoc() {
-      return signedIn() ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : null;
-    }
-
-    function roleId() {
-      return userDoc().roleId;
-    }
-
-    function roleDoc() {
-      return signedIn() ? get(/databases/$(database)/documents/roles/$(roleId())).data : null;
-    }
-
-    function approved() {
-      return signedIn() && userDoc().approved == true && roleId() != "pending";
-    }
-
-    function perm(name) {
-      return approved() && roleDoc().perms[name] == true;
-    }
+    function signedIn() { return request.auth != null; }
 
     function isOwner() {
       return signedIn() && request.auth.uid == "pxEjO8xAUxQcrwEILjwxi9OlFp82";
     }
 
-    function isAdmin() {
-      return approved() && (roleId() == "admin" || roleDoc().perms.admin == true);
+    function userDoc() {
+      return signedIn()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : null;
     }
 
-    // USERS
+    function roleId() {
+      return signedIn() ? (userDoc().roleId) : "pending";
+    }
+
+    function roleDoc() {
+      return signedIn()
+        ? get(/databases/$(database)/documents/roles/$(roleId())).data
+        : null;
+    }
+
+    function approved() {
+      return signedIn()
+        && userDoc().approved == true
+        && roleId() != "pending";
+    }
+
+    // ✅ supporte "perms" OU "permissions"
+    function perm(name) {
+      return approved()
+        && (
+          (roleDoc().perms[name] == true) ||
+          (roleDoc().permissions[name] == true)
+        );
+    }
+
+    function isAdmin() {
+      return approved()
+        && (
+          roleId() == "admin"
+          || roleDoc().perms.admin == true
+          || roleDoc().permissions.admin == true
+        );
+    }
+
+    // ---------------- USERS ----------------
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
 
-      // create: l'utilisateur peut créer son profil initial, mais pas s'auto-valider / s'auto-admin
+      // user create initial profile only (non admin / non approved)
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.approved == false
         && request.resource.data.roleId == "pending";
 
-      // bootstrap owner (optionnel): peut se mettre admin/approved
-      allow create: if isOwner() && request.auth.uid == uid;
+      // owner can create/repair any user doc (bootstrap)
+      allow create, update: if isOwner();
 
-      // update:
-      // - l'utilisateur peut mettre à jour ses champs "soft" (displayName) mais pas approved/roleId
-      // - admin peut modifier tout
-      allow update: if isAdmin() || isOwner()
+      // user can update only "soft" fields (cannot change approved/roleId)
+      allow update: if isAdmin()
         || (signedIn() && request.auth.uid == uid
             && request.resource.data.approved == resource.data.approved
             && request.resource.data.roleId == resource.data.roleId
            );
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isOwner();
     }
 
-    // ROLES
-    match /roles/{roleId} {
+    // ---------------- ROLES ----------------
+    match /roles/{rid} {
       allow read: if signedIn();
-      allow write: if isAdmin(); // création / update / delete
+      // ✅ admin OU owner (pour bootstrap)
+      allow write: if isAdmin() || isOwner();
     }
 
-    // SUPPLIERS
+    // ---------------- SUPPLIERS ----------------
     match /suppliers/{id} {
-      allow read: if perm("read");
-      allow write: if perm("suppliers") || isAdmin();
+      allow read: if perm("read") || isAdmin() || isOwner();
+      allow write: if perm("suppliers") || isAdmin() || isOwner();
     }
 
-    // ITEMS
+    // ---------------- ITEMS ----------------
     match /items/{barcode} {
-      allow read: if perm("read");
-
-      // création/modif article (champs) par items perm
-      allow create, update, delete: if perm("items") || isAdmin();
+      allow read: if perm("read") || isAdmin() || isOwner();
+      allow create, update, delete: if perm("items") || isAdmin() || isOwner();
     }
 
-    // MOVES
+    // ---------------- MOVES ----------------
     match /moves/{id} {
-      allow read: if perm("read");
-      allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.approved == false
-        && request.resource.data.roleId == "pending";
+      allow read: if perm("read") || isAdmin() || isOwner();
 
-      // bootstrap owner (optionnel): peut se mettre admin/approved
-      allow create: if isOwner() && request.auth.uid == uid;
-      allow update, delete: if isAdmin();
+      // ✅ un mouvement = autorisé si "move"
+      allow create: if perm("move") || isAdmin() || isOwner();
+
+      allow update, delete: if isAdmin() || isOwner();
     }
 
     // fallback
