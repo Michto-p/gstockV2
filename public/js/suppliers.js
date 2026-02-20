@@ -1,2 +1,2 @@
-// items.js
+// suppliers.js
 import {AppEvents} from './core.js'; AppEvents.addEventListener('auth:signedIn',()=>{});
